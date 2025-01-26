@@ -10,6 +10,11 @@ class AdminLogin(BaseModel):
     username: str
     password: str
 
+# 🏦 Bank Model
+class BankCreate(BaseModel):
+    admin_id: int
+    balance: int = 0
+
 # 👤 User Models
 class UserCreate(BaseModel):
     wallet_address: str

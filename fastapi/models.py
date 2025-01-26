@@ -8,6 +8,22 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+
+# 👤 Admin Model
+class Admin(Base):
+    __tablename__ = "admins"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(100), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)  # Hashed password
+
+# 🏦 Bank Model (Holds collected fees)
+class Bank(Base):
+    __tablename__ = "bank"
+    id = Column(Integer, primary_key=True, index=True)
+    admin_id = Column(Integer, ForeignKey("admins.id"), unique=True)  # Only one admin controls the bank
+    balance = Column(BigInteger, default=0)  # Stores collected fees
+    admin = relationship("Admin")
+
 # 👤 User Model
 class User(Base):
     __tablename__ = "users"
