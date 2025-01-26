@@ -88,7 +88,7 @@ def create_mailbox(mailbox: MailboxCreate, db: Session = Depends(get_db)):
 
 # 📩 Store Message (Called after on-chain transaction)
 @app.post("/store_message")
-def store_message(msg: MessageCreate, db: Session = Depends(get_db)):
+def store_message(msg: MessageWithNFTCreate, db: Session = Depends(get_db)):
     db_msg = MessageWithNFT(**msg.dict())
     db.add(db_msg)
     db.commit()
