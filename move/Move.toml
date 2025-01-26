@@ -1,0 +1,12 @@
+[package]
+name = "suimail"
+edition = "2024.beta"
+license = "MIT"
+authors = ["Your Name (yourname@example.com)"]
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
+
+[addresses]
+suimail = "0x0"
+
