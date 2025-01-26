@@ -8,7 +8,6 @@ from jose import JWTError, jwt
 from pydantic_models import AdminCreate, AdminLogin
 from sqlalchemy.exc import IntegrityError
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pysui.sui.sui_pgql.pgql_sync_txn import SuiTransaction
 
 # JWT Config
 SECRET_KEY = "suimailrocks"
