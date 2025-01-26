@@ -15,7 +15,7 @@ class BankCreate(BaseModel):
     admin_id: int
     balance: int = 0
 
-# 👤 User Models
+# 👤 User Registration Model
 class UserCreate(BaseModel):
     wallet_address: str
     username: str

@@ -32,9 +32,11 @@ class User(Base):
     display_name = Column(String(12))
     bio = Column(String(200))
     avatar_cid = Column(String(200))
+    password_hash = Column(String(255), nullable=False)  # Store hashed password
     
     # One-to-One: Each User has One Mailbox
     mailbox = relationship("Mailbox", back_populates="owner", uselist=False)
+
 
 # 📬 Mailbox Model (Each user has a mailbox)
 class Mailbox(Base):
