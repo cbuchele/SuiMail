@@ -97,6 +97,20 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 
     return {"message": "User registered successfully", "password": raw_password}  # Return password
 
+
+
+@app.get("/get-password/{wallet_address}")
+def get_user_password(wallet_address: str, db: Session = Depends(get_db)):
+    """
+    Fetch the stored password for a given wallet address (No auth required).
+    """
+    user = db.query(User).filter(User.wallet_address == wallet_address).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {"password": user.password_hash}  # Return stored password
+
 # ✏️ Update Profile
 @app.post("/update_profile")
 def update_profile(profile: ProfileUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
