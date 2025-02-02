@@ -1,16 +1,14 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from models import SessionLocal, Admin, User, MessageWithNFT ,Kiosk,KioskItem, Mailbox, Bank
-from pydantic_models import MailboxCreate, MailboxMessagesResponse, MessageWithNFTCreate, UserCreate, AdminLogin, ProfileUpdate, NFTTransfer, KioskCreate, KioskItemCreate
+from models import SessionLocal, Admin, User, MessageWithNFT ,Kiosk,KioskItem, Mailbox
+from pydantic_models import MailboxCreate, MailboxMessagesResponse, MessageWithNFTCreate, UserCreate, AdminLogin, MessageCreate, ProfileUpdate, NFTTransfer, KioskCreate, KioskItemCreate
 from passlib.context import CryptContext
-from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
-from pydantic_models import AdminCreate, AdminLogin
+from pydantic_models import AdminCreate
 from sqlalchemy.exc import IntegrityError
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-import secrets
-
+from pysui.sui.sui_pgql.pgql_sync_txn import SuiTransaction
 
 # JWT Config
 SECRET_KEY = "suimailrocks"
@@ -28,30 +26,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
-
-
-# CORS configuration
-origins = [
-    "http://localhost",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",  # Add the exact origin where your frontend is hosted
-    "https://www.suimail.xyz",
-    
-    # Add other origins as needed
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-)
-
-
-
-
 
 # Authenticate User
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
@@ -73,43 +47,21 @@ def login(wallet_address: str, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.wallet_address == wallet_address).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not registered")
-
-    # ✅ Automatically generate JWT using stored password hash
+    
     access_token = jwt.encode({"sub": wallet_address}, SECRET_KEY, algorithm=ALGORITHM)
     return {"access_token": access_token, "token_type": "bearer"}
 
+# 👤 Register User (Called after on-chain transaction)
 @app.post("/register")
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.wallet_address == user.wallet_address).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="User already registered")
 
-    # ✅ Generate a random secure password
-    raw_password = secrets.token_urlsafe(16)  # 16-character secure token
-    hashed_password = pwd_context.hash(raw_password)  # Hash password
-
-    # ✅ Store user in database with hashed password
-    db_user = User(**user.dict(), password_hash=hashed_password)
+    db_user = User(**user.dict())
     db.add(db_user)
     db.commit()
-
-    print(f"Generated password for {user.wallet_address}: {raw_password}")  # Debugging ONLY
-
-    return {"message": "User registered successfully", "password": raw_password}  # Return password
-
-
-
-@app.get("/get-password/{wallet_address}")
-def get_user_password(wallet_address: str, db: Session = Depends(get_db)):
-    """
-    Fetch the stored password for a given wallet address (No auth required).
-    """
-    user = db.query(User).filter(User.wallet_address == wallet_address).first()
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    return {"password": user.password_hash}  # Return stored password
+    return {"message": "User registered successfully"}
 
 # ✏️ Update Profile
 @app.post("/update_profile")
@@ -136,7 +88,7 @@ def create_mailbox(mailbox: MailboxCreate, db: Session = Depends(get_db)):
 
 # 📩 Store Message (Called after on-chain transaction)
 @app.post("/store_message")
-def store_message(msg: MessageWithNFTCreate, db: Session = Depends(get_db)):
+def store_message(msg: MessageCreate, db: Session = Depends(get_db)):
     db_msg = MessageWithNFT(**msg.dict())
     db.add(db_msg)
     db.commit()

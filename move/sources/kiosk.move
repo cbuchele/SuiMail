@@ -5,8 +5,10 @@ module suimail::kiosk {
     use sui::coin::{Self, Coin};
     use sui::clock::{Self, Clock};
     use std::vector;
+    use sui::sui::SUI;
+
     use std::option::{Self, Option};
-    use suimail::admin::{Self, Bank}; // ✅ Import the Bank object
+    use suimail::admin::{Self, UserBank}; // ✅ Import the Bank object
 
     /// Error codes
     const EItemNotFound: u64 = 1;
@@ -14,6 +16,13 @@ module suimail::kiosk {
     const ENotAuthorized: u64 = 3;
     const EMaxItemsReached: u64 = 4;
     const E_INSUFFICIENT_FUNDS: u64 = 5; // New error for fee validation
+
+    /// Registry to track all kiosks on-chain.
+    public struct KioskRegistry has key, store {
+        id: UID,                // UID for the registry
+        kiosks: vector<ID>,     // List of kiosk IDs
+        owners: vector<address>, // List of kiosk owners (parallel to kiosks)
+    }
 
     /// Represents a single item in the kiosk.
     public struct KioskItem has store, drop {
@@ -30,6 +39,16 @@ module suimail::kiosk {
         owner: address,
         items: vector<KioskItem>, // List of items for sale
         balance: Coin<u64>,       // Accumulated balance from sales in SUI
+    }
+
+    /// ✅ Automatically initialize the kiosk registry when the module is published.
+    fun init(ctx: &mut TxContext) {
+        let registry = KioskRegistry {
+            id: object::new(ctx),
+            kiosks: vector::empty<ID>(),
+            owners: vector::empty<address>(),
+        };
+        transfer::share_object(registry);  // Share the registry object
     }
 
     /// Get the owner of the kiosk.
@@ -54,34 +73,66 @@ module suimail::kiosk {
         return false
     }
 
-    
-/// ✅ Initialize a new kiosk (Requires 10 SUI fee)
+    /// ✅ Convert an `ID` to `u64` safely
+    fun id_to_numeric(id: &ID): u64 {
+        let bytes = object::id_to_bytes(id);
+        (bytes[0] as u64) | ((bytes[1] as u64) << 8) | ((bytes[2] as u64) << 16) | ((bytes[3] as u64) << 24) |
+        ((bytes[4] as u64) << 32) | ((bytes[5] as u64) << 40) | ((bytes[6] as u64) << 48) | ((bytes[7] as u64) << 56)
+    }
+
+    /// ✅ Initialize a new kiosk and register it
     public entry fun init_kiosk(
-        bank: &mut Bank, // ✅ Reference the Bank object
-        payment: Coin<u64>,
+        user_bank: &mut suimail::admin::UserBank,
+        mut payment: Coin<SUI>,
+        registry: &mut KioskRegistry,
         ctx: &mut TxContext
     ) {
         let sender = tx_context::sender(ctx);
-        let id = object::new(ctx);
         let balance = coin::zero(ctx);
 
-        // ✅ Ensure the user pays exactly 10 SUI
-        assert!(coin::value(&payment) == 10_000_000_000, E_INSUFFICIENT_FUNDS);
+        // Ensure the user has at least 10 SUI
+        let required_payment = 10_000_000_000;
+        let actual_payment = coin::value(&payment);
 
-        // ✅ Call deposit_fees to store the fee in the bank
-        suimail::admin::deposit_fees(bank, payment);
+        assert!(actual_payment >= required_payment, E_INSUFFICIENT_FUNDS);
 
+        // Extract 10 SUI from the payment coin
+        let used_payment = coin::split(&mut payment, required_payment, ctx);
+        suimail::admin::deposit_fees(user_bank, used_payment);
+
+        // Refund remaining balance if any
+        if (coin::value(&payment) > 0) {
+            transfer::public_transfer(payment, sender);
+        } else {
+            coin::destroy_zero(payment); // Consume the remaining empty coin
+        };
+
+        // Initialize the Kiosk Object
         let kiosk = UserKiosk {
-            id,
+            id: object::new(ctx),
             owner: sender,
             items: vector::empty<KioskItem>(),
             balance,
         };
 
-        transfer::transfer(kiosk, sender);
+        let kiosk_id = object::id(&kiosk);
+        vector::push_back(&mut registry.kiosks, kiosk_id);
+        vector::push_back(&mut registry.owners, sender); // Add the owner's address
+
+        // Use `public_share_object` to make the Kiosk public
+        transfer::public_share_object(kiosk);
     }
 
-
+    public fun get_kiosk_owner(registry: &KioskRegistry, kiosk_id: ID): address {
+        let mut i = 0;
+        while (i < vector::length(&registry.kiosks)) {
+            if (vector::borrow(&registry.kiosks, i) == kiosk_id) {
+                return *vector::borrow(&registry.owners, i);
+            };
+            i = i + 1;
+        };
+        abort EItemNotFound // Kiosk not found
+    }
 
     /// Publish a new item to the kiosk.
     public entry fun publish_item(
@@ -171,6 +222,11 @@ module suimail::kiosk {
         transfer::public_transfer(coin, owner); // Use public_transfer to send the coin to the owner
     }
 
+    /// Returns all kiosks on-chain
+    public fun get_all_kiosks(registry: &KioskRegistry): &vector<ID> {
+        &registry.kiosks
+    }
+
     /// Delete the entire kiosk.
     public fun delete_kiosk(
         admin_cap: suimail::admin::AdminCap, // Require AdminCap as an argument
@@ -190,6 +246,17 @@ module suimail::kiosk {
         object::delete(id);
 
         admin_cap // Return the AdminCap back to the caller
+    }
+
+    public fun verify_kiosk_ownership(registry: &KioskRegistry, kiosk_id: ID, caller: address): bool {
+        let mut i = 0;
+        while (i < vector::length(&registry.kiosks)) {
+            if (vector::borrow(&registry.kiosks, i) == kiosk_id) {
+                return *vector::borrow(&registry.owners, i) == caller;
+            };
+            i = i + 1;
+        };
+        false // Kiosk not found
     }
 
     /// Get the number of items in the kiosk.

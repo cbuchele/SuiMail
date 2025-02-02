@@ -3,26 +3,10 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 
 # Database setup
-DATABASE_URL = "mysql+pymysql://root:PanPandora2025!@localhost/suimail"
+DATABASE_URL = "mysql+pymysql://root:Pl.ystation5!@localhost/suimail"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
-
-
-# 👤 Admin Model
-class Admin(Base):
-    __tablename__ = "admins"
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String(100), unique=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)  # Hashed password
-
-# 🏦 Bank Model (Holds collected fees)
-class Bank(Base):
-    __tablename__ = "bank"
-    id = Column(Integer, primary_key=True, index=True)
-    admin_id = Column(Integer, ForeignKey("admins.id"), unique=True)  # Only one admin controls the bank
-    balance = Column(BigInteger, default=0)  # Stores collected fees
-    admin = relationship("Admin")
 
 # 👤 User Model
 class User(Base):
@@ -32,11 +16,9 @@ class User(Base):
     display_name = Column(String(12))
     bio = Column(String(200))
     avatar_cid = Column(String(200))
-    password_hash = Column(String(255), nullable=False)  # Store hashed password
     
     # One-to-One: Each User has One Mailbox
     mailbox = relationship("Mailbox", back_populates="owner", uselist=False)
-
 
 # 📬 Mailbox Model (Each user has a mailbox)
 class Mailbox(Base):
