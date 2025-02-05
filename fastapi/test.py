@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from models import SessionLocal, Admin, User, MessageWithNFT, Message, Kiosk, KioskItem, Mailbox, MailboxRegistry
+from models import SessionLocal, User, MessageWithNFT, Message, Kiosk, KioskItem, Mailbox, MailboxRegistry
 from pydantic_models import (
     MailboxCreate, MailboxMessagesResponse, MessageWithNFTCreate, UserCreate, AdminLogin,
     MessageCreate, ProfileUpdate, NFTTransfer, KioskCreate, KioskItemCreate, MailboxRegistryCreate
