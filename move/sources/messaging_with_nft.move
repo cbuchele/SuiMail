@@ -66,15 +66,15 @@ module suimail::messaging {
     }
 
     /// Initialize the mailbox registry
-        fun init(ctx: &mut TxContext) {
-        let deployer = tx_context::sender(ctx);
-
-        // Initialize the MailboxRegistry and transfer ownership to the deployer
+    fun init(ctx: &mut TxContext) {
+        // Initialize the MailboxRegistry
         let registry = MailboxRegistry {
             id: object::new(ctx),
             owner_to_mailbox: table::new(ctx),
         };
-        transfer::transfer(registry, deployer);
+
+        // Share the registry object to make it globally accessible
+        transfer::share_object(registry);
     }
 
     /// Create a mailbox for a user
@@ -156,6 +156,4 @@ module suimail::messaging {
         let mailbox = table::borrow(&registry.owner_to_mailbox, owner);
         vector::length(&mailbox.messages)
     }
-
-   
 }
