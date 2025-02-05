@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 
 # Database setup
-DATABASE_URL = "mysql+pymysql://root:Pl.ystation5!@localhost/suimail"
+DATABASE_URL = "mysql+pymysql://remote_user:Pl.ystation5!@147.93.114.109:3306/suimail"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
