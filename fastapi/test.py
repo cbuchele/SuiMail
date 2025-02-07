@@ -1,21 +1,26 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from models import SessionLocal, User, MessageWithNFT, Message, Kiosk, KioskItem, Mailbox, MailboxRegistry
-from pydantic_models import (
-    MailboxCreate, MailboxMessagesResponse, MessageWithNFTCreate, UserCreate, AdminLogin,
-    MessageCreate, ProfileUpdate, NFTTransfer, KioskCreate, KioskItemCreate, MailboxRegistryCreate
-)
+from models import SessionLocal, Admin, User, MessageWithNFT ,Kiosk,KioskItem, Mailbox
+from pydantic_models import MailboxCreate, MailboxMessagesResponse, MessageWithNFTCreate, UserCreate, AdminLogin, MessageCreate, ProfileUpdate, NFTTransfer, KioskCreate, KioskItemCreate
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from pydantic_models import AdminCreate
 from sqlalchemy.exc import IntegrityError
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from pysui.sui.sui_pgql.pgql_sync_txn import SuiTransaction
+from cryptography.fernet import Fernet
+from typing import Any
+
 
 # JWT Config
 SECRET_KEY = "suimailrocks"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
+
+# Generate a key and save it securely (store this key in your environment variables)
+key = Fernet.generate_key()
+cipher = Fernet(key)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
@@ -88,37 +93,69 @@ def create_mailbox(mailbox: MailboxCreate, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Mailbox created successfully"}
 
-# 📩 Store Message (Called after on-chain transaction)
+# Encrypt the message content before storing it
 @app.post("/store_message")
 def store_message(msg: MessageCreate, db: Session = Depends(get_db)):
-    db_msg = Message(**msg.dict())
+    if not msg.content:
+        raise HTTPException(status_code=400, detail="Message content cannot be empty")
+
+    try:
+        # Encrypt the content
+        encrypted_content = cipher.encrypt(msg.content.encode()).decode()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error encrypting message content: {str(e)}"
+        )
+
+    # Create the MessageWithNFT object with encrypted content
+    db_msg = MessageWithNFT(
+        sender=msg.sender,
+        receiver=msg.receiver,
+        cid=msg.cid,
+        content=encrypted_content,  # Store the encrypted content
+        timestamp=msg.timestamp,
+        nft_object_id=msg.nft_object_id,
+        claim_price=msg.claim_price,
+        mailbox_id=msg.mailbox_id
+    )
     db.add(db_msg)
     db.commit()
     return {"message": "Message stored successfully"}
 
-# 📩 Store Message with NFT (Called after on-chain transaction)
-@app.post("/store_message_with_nft")
-def store_message_with_nft(msg: MessageWithNFTCreate, db: Session = Depends(get_db)):
-    db_msg = MessageWithNFT(**msg.dict())
-    db.add(db_msg)
-    db.commit()
-    return {"message": "Message with NFT stored successfully"}
-
 # 📬 Get User Messages
 @app.get("/messages")
 def get_messages(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    messages = db.query(Message).filter(
-        (Message.sender == current_user.wallet_address) | (Message.receiver == current_user.wallet_address)
+    messages = db.query(MessageWithNFT).filter(
+        (MessageWithNFT.sender == current_user.wallet_address) |
+        (MessageWithNFT.receiver == current_user.wallet_address)
     ).all()
-    messages_with_nft = db.query(MessageWithNFT).filter(
-        (MessageWithNFT.sender == current_user.wallet_address) | (MessageWithNFT.receiver == current_user.wallet_address)
-    ).all()
-    return {
-        "messages": messages,
-        "messages_with_nft": messages_with_nft,
-    }
 
-# 🏪 Create Kiosk (Called after on-chain transaction)
+    response = []
+    for msg in messages:
+        try:
+            # Decrypt the content
+            decrypted_content = cipher.decrypt(msg.content.encode()).decode()
+            response.append({
+                "id": msg.id,
+                "sender": msg.sender,
+                "receiver": msg.receiver,
+                "cid": msg.cid,
+                "content": decrypted_content,  # Decrypted content
+                "timestamp": msg.timestamp,
+                "nft_object_id": msg.nft_object_id,
+                "claim_price": msg.claim_price,
+                "mailbox_id": msg.mailbox_id
+            })
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error decrypting message content: {str(e)}"
+            )
+
+    return response
+
+# 🏪 **Create Kiosk (Called after on-chain transaction)**
 @app.post("/create_kiosk")
 def create_kiosk(kiosk: KioskCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     existing_kiosk = db.query(Kiosk).filter(Kiosk.kiosk_id == kiosk.kiosk_id).first()
@@ -143,13 +180,14 @@ def link_kiosk(profile_id: str, kiosk_id: str, db: Session = Depends(get_db), cu
     
     return {"message": "Kiosk linked successfully"}
 
-# 🔍 Get All Kiosks
+# 🔍 **Get All Kiosks**
 @app.get("/kiosks")
 def get_all_kiosks(db: Session = Depends(get_db)):
     kiosks = db.query(Kiosk).all()
     return kiosks
 
-# 🏪 Get a Specific Kiosk
+
+# 🏪 **Get a Specific Kiosk**
 @app.get("/kiosk/{kiosk_id}")
 def get_kiosk(kiosk_id: str, db: Session = Depends(get_db)):
     kiosk = db.query(Kiosk).filter(Kiosk.kiosk_id == kiosk_id).first()
@@ -157,7 +195,11 @@ def get_kiosk(kiosk_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Kiosk not found")
     return kiosk
 
-# 🛒 Add Item to Kiosk (Called after on-chain transaction)
+
+
+
+
+# 🛒 **Add Item to Kiosk (Called after on-chain transaction)**
 @app.post("/add_kiosk_item")
 def add_kiosk_item(item: KioskItemCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     kiosk = db.query(Kiosk).filter(Kiosk.kiosk_id == item.kiosk_id, Kiosk.owner_wallet == current_user.wallet_address).first()
@@ -169,13 +211,13 @@ def add_kiosk_item(item: KioskItemCreate, db: Session = Depends(get_db), current
     db.commit()
     return {"message": "Item added successfully"}
 
-# 🛍️ Get All Items in a Kiosk
+# 🛍️ **Get All Items in a Kiosk**
 @app.get("/store/{kiosk_id}")
 def get_store_items(kiosk_id: str, db: Session = Depends(get_db)):
     items = db.query(KioskItem).filter(KioskItem.kiosk_id == kiosk_id).all()
     return items
 
-# ❌ Delete an Item from the Kiosk (Only Owner)
+# ❌ **Delete an Item from the Kiosk (Only Owner)**
 @app.delete("/delete_kiosk_item/{item_id}")
 def delete_kiosk_item(item_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     item = db.query(KioskItem).filter(KioskItem.item_id == item_id).first()
@@ -190,7 +232,8 @@ def delete_kiosk_item(item_id: str, db: Session = Depends(get_db), current_user:
     db.commit()
     return {"message": "Item deleted successfully"}
 
-# 💰 Buy Item from Kiosk (Called after on-chain transaction)
+
+# 💰 **Buy Item from Kiosk (Called after on-chain transaction)**
 @app.post("/buy_kiosk_item/{item_id}")
 def buy_kiosk_item(item_id: str, db: Session = Depends(get_db)):
     item = db.query(KioskItem).filter(KioskItem.item_id == item_id).first()
@@ -202,7 +245,8 @@ def buy_kiosk_item(item_id: str, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Item purchased successfully"}
 
-# 💵 Withdraw Funds from Kiosk (Owner Only)
+
+# 💵 **Withdraw Funds from Kiosk (Owner Only)**
 @app.post("/withdraw_funds/{kiosk_id}")
 def withdraw_funds(kiosk_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     kiosk = db.query(Kiosk).filter(Kiosk.kiosk_id == kiosk_id, Kiosk.owner_wallet == current_user.wallet_address).first()
@@ -212,7 +256,7 @@ def withdraw_funds(kiosk_id: str, db: Session = Depends(get_db), current_user: U
     # In frontend, this transaction is executed first on-chain
     return {"message": f"Funds withdrawn successfully for Kiosk {kiosk_id}"}
 
-# ❌ Delete Entire Kiosk (Owner Only)
+# ❌ **Delete Entire Kiosk (Owner Only)**
 @app.delete("/delete_kiosk/{kiosk_id}")
 def delete_kiosk(kiosk_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     kiosk = db.query(Kiosk).filter(Kiosk.kiosk_id == kiosk_id, Kiosk.owner_wallet == current_user.wallet_address).first()
@@ -222,23 +266,3 @@ def delete_kiosk(kiosk_id: str, db: Session = Depends(get_db), current_user: Use
     db.delete(kiosk)
     db.commit()
     return {"message": "Kiosk deleted successfully"}
-
-# 📬 Create MailboxRegistry Entry
-@app.post("/create_mailbox_registry")
-def create_mailbox_registry(registry: MailboxRegistryCreate, db: Session = Depends(get_db)):
-    existing_registry = db.query(MailboxRegistry).filter(MailboxRegistry.owner_wallet == registry.owner_wallet).first()
-    if existing_registry:
-        raise HTTPException(status_code=400, detail="MailboxRegistry already exists for this user")
-
-    db_registry = MailboxRegistry(**registry.dict())
-    db.add(db_registry)
-    db.commit()
-    return {"message": "MailboxRegistry created successfully"}
-
-# 🔍 Get MailboxRegistry by User
-@app.get("/mailbox_registry/{owner_wallet}")
-def get_mailbox_registry(owner_wallet: str, db: Session = Depends(get_db)):
-    registry = db.query(MailboxRegistry).filter(MailboxRegistry.owner_wallet == owner_wallet).first()
-    if not registry:
-        raise HTTPException(status_code=404, detail="MailboxRegistry not found")
-    return registry
