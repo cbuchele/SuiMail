@@ -25,7 +25,7 @@ class Mailbox(Base):
     __tablename__ = "mailboxes"
     id = Column(Integer, primary_key=True, index=True)
     mailbox_id = Column(String(120), unique=True, index=True)
-    owner_wallet = Column(String(200), ForeignKey("users.wallet_address"), unique=True)  # One-to-One with User
+    owner_wallet = Column(String(200), ForeignKey("users.address"), unique=True)  # One-to-One with User
     owner = relationship("User", back_populates="mailbox")
 
     # One-to-Many: A Mailbox stores multiple MessagesWithNFT
@@ -50,7 +50,7 @@ class Kiosk(Base):
     __tablename__ = "kiosks"
     id = Column(Integer, primary_key=True, index=True)
     kiosk_id = Column(String(120), unique=True, index=True)
-    owner_wallet = Column(String(200), ForeignKey("users.wallet_address"))
+    owner_wallet = Column(String(200), ForeignKey("users.address"))
     items = relationship("KioskItem", back_populates="kiosk")
 
 # 🛒 Kiosk Item Model
