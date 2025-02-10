@@ -13,7 +13,7 @@ class User(Base):
     __tablename__ = "users"
     address = Column(String(200), primary_key=True, index=True)
     username = Column(String(60))
-    display_name = Column(String(12))
+    display_name = Column(String(50))
     bio = Column(String(200))
     avatar_cid = Column(String(200))
     
