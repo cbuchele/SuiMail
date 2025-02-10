@@ -1,14 +1,16 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 
 
-# 👤 User Models
 class UserCreate(BaseModel):
-    wallet_address: str
+    address: str = Field(..., alias="wallet_address")
     username: str
     display_name: str
     bio: str
     avatar_cid: str
+
+    class Config:
+        allow_population_by_field_name = True
 
 class MessageCreate(BaseModel):
     sender: str

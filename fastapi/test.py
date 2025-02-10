@@ -62,18 +62,18 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 # 🔑 User Login & Token Generation
 @app.post("/auth/token")
-def login(wallet_address: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.wallet_address == wallet_address).first()
+def login(address: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.address == address).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not registered")
     
-    access_token = jwt.encode({"sub": wallet_address}, SECRET_KEY, algorithm=ALGORITHM)
+    access_token = jwt.encode({"sub": address}, SECRET_KEY, algorithm=ALGORITHM)
     return {"access_token": access_token, "token_type": "bearer"}
 
 # 👤 Register User (Called after on-chain transaction)
 @app.post("/register")
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    existing_user = db.query(User).filter(User.wallet_address == user.wallet_address).first()
+    existing_user = db.query(User).filter(User.address == user.address).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="User already registered")
 
@@ -81,7 +81,6 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     db.add(db_user)
     db.commit()
     return {"message": "User registered successfully"}
-
 # 📬 Create Mailbox
 @app.post("/create_mailbox")
 def create_mailbox(mailbox: MailboxCreate, db: Session = Depends(get_db)):
