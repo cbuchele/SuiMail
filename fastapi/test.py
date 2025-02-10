@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from sqlalchemy.exc import IntegrityError
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pysui.sui.sui_pgql.pgql_sync_txn import SuiTransaction
 from cryptography.fernet import Fernet
 from typing import Any
 
