@@ -82,13 +82,17 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "User registered successfully"}
 # 📬 Create Mailbox
+
 @app.post("/create_mailbox")
 def create_mailbox(mailbox: MailboxCreate, db: Session = Depends(get_db)):
     existing_mailbox = db.query(Mailbox).filter(Mailbox.mailbox_id == mailbox.mailbox_id).first()
     if existing_mailbox:
         raise HTTPException(status_code=400, detail="Mailbox already exists")
 
-    db_mailbox = Mailbox(**mailbox.dict())
+    db_mailbox = Mailbox(
+        mailbox_id=mailbox.mailbox_id,
+        owner_address=mailbox.owner_address
+    )
     db.add(db_mailbox)
     db.commit()
     return {"message": "Mailbox created successfully"}
