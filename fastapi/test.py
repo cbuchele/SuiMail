@@ -91,7 +91,7 @@ def create_mailbox(mailbox: MailboxCreate, db: Session = Depends(get_db)):
 
     db_mailbox = Mailbox(
         mailbox_id=mailbox.mailbox_id,
-        owner_address=mailbox.owner_wallet
+        owner_wallet=mailbox.owner_wallet
     )
     db.add(db_mailbox)
     db.commit()
