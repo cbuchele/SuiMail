@@ -96,24 +96,24 @@ def create_mailbox(mailbox: MailboxCreate, db: Session = Depends(get_db)):
 # Encrypt the message content before storing it
 @app.post("/store_message")
 def store_message(msg: MessageCreate, db: Session = Depends(get_db)):
-    if not msg.content:
-        raise HTTPException(status_code=400, detail="Message content cannot be empty")
+    if not msg.cid:
+        raise HTTPException(status_code=400, detail="CID cannot be empty")
 
     try:
-        # Encrypt the content
-        encrypted_content = cipher.encrypt(msg.content.encode()).decode()
+        # Encrypt the content (if needed)
+        encrypted_content = cipher.encrypt(msg.content.encode()).decode() if msg.content else None
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error encrypting message content: {str(e)}"
         )
 
-    # Create the MessageWithNFT object with encrypted content
+    # Create the MessageWithNFT object with the provided CID
     db_msg = MessageWithNFT(
         sender=msg.sender,
         receiver=msg.receiver,
-        cid=msg.cid,
-        content=encrypted_content,  # Store the encrypted content
+        cid=msg.cid,  # Store the CID directly
+        content=encrypted_content,  # Store the encrypted content (if any)
         timestamp=msg.timestamp,
         nft_object_id=msg.nft_object_id,
         claim_price=msg.claim_price,
@@ -134,14 +134,14 @@ def get_messages(current_user: User = Depends(get_current_user), db: Session = D
     response = []
     for msg in messages:
         try:
-            # Decrypt the content
-            decrypted_content = cipher.decrypt(msg.content.encode()).decode()
+            # Decrypt the content (if encrypted)
+            decrypted_content = cipher.decrypt(msg.content.encode()).decode() if msg.content else None
             response.append({
                 "id": msg.id,
                 "sender": msg.sender,
                 "receiver": msg.receiver,
-                "cid": msg.cid,
-                "content": decrypted_content,  # Decrypted content
+                "cid": msg.cid,  # Return the CID
+                "content": decrypted_content,  # Decrypted content (if any)
                 "timestamp": msg.timestamp,
                 "nft_object_id": msg.nft_object_id,
                 "claim_price": msg.claim_price,
