@@ -1,14 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, List
 
-# 🛡️ Admin Models
-class AdminCreate(BaseModel):
-    username: str
-    password: str
-
-class AdminLogin(BaseModel):
-    username: str
-    password: str
 
 # 👤 User Models
 class UserCreate(BaseModel):
@@ -66,3 +58,8 @@ class ProfileUpdate(BaseModel):
 class NFTTransfer(BaseModel):
     recipient: str
     nft_id: str
+
+# 📬 Mailbox Create Model
+class MailboxCreate(BaseModel):
+    mailbox_id: str
+    owner_wallet: str
