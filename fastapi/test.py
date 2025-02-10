@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from models import SessionLocal, User, MessageWithNFT ,Kiosk,KioskItem, Mailbox
 from pydantic_models import MailboxCreate, MailboxMessagesResponse, MessageWithNFTCreate, UserCreate, MessageCreate, ProfileUpdate, NFTTransfer, KioskCreate, KioskItemCreate
@@ -23,6 +24,19 @@ cipher = Fernet(key)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 app = FastAPI()
+
+# CORS configuration
+origins = [
+    "http://localhost:3000",  # Frontend application
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Dependency for DB Session
 def get_db():
