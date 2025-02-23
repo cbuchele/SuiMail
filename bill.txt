@@ -1,0 +1,79 @@
+     0x8ef18076a7616429bc139a35e8976f59ea8201cb2f17e27be17e92194732245c          - coin obj
+
+0xc31c45deccb71bd82a5419fb2751e875573fe1ca3cbc7e843d13dedf134900a7 mailbox registry
+
+package id 0x266522346525da16b6bf81cc7596dc4dbbaaeb3dc9400c5643efb6a72c4e4331
+
+CREATE MAILBOX TUTORIAL
+
+sui client pay-sui \
+    --input-coins 0x8ef18076a7616429bc139a35e8976f59ea8201cb2f17e27be17e92194732245c(PACKAGE ID) \
+    --recipients 0xaca99c50b5e87383a0ca0fb359c96f2e8442bc26ef60db1c82ed40cc1ee5c36b(OWN ADDRESS) \
+    --amounts 1000000000(1SUI) \
+    --gas-budget 50000000
+
+
+GET NEW COIN OBJECT ID FROM THE SPLIT
+
+sui client call \
+    --package 0x266522346525da16b6bf81cc7596dc4dbbaaeb3dc9400c5643efb6a72c4e4331 \
+    --module messaging \
+    --function create_mailbox \
+    --args 0xc31c45deccb71bd82a5419fb2751e875573fe1ca3cbc7e843d13dedf134900a7 0x<NEW_COIN_OBJECT_ID> \
+    --gas 0x8ef18076a7616429bc139a35e8976f59ea8201cb2f17e27be17e92194732245c \
+    --gas-budget 50000000
+
+
+    MAILBOX CREATION OVERVIEW
+
+    GET ALL GAS COIN OBJECTS
+
+    SEE IF SOME ARE ALREADY SPLIT IF NOT, USEING SUI-PAY, SPLIT A COIN, OR SPLIT THROUGH SDK FOR 1 SUI. GET THE NEW OBJECT ID FOR THE FEE OBJECT, USE THE OTHER GAS OBJECT WITH SUI FOR THE GAS-BUDGET AND THE MAILBOX WILL BE CREATED
+
+
+
+    SEND MESSAGE TESTS
+
+    sui client call \
+    --package 0x3870f694fad7cd7548a03b33b81f7e80320085e0e69229b2f958da0a1b59cc58 \
+    --module messaging \
+    --function send_message \
+    --args 0x0248118526beb734de85718bedebc871aea93f979ba91086a02d79af0621eb4a 0xd950160650923fa0a52a469c496e6e219e6b139c44667df689a24a9e320e83b3 0xc864e043adf0242bbb5c690479fa75cb185a07f09fcf98b941bbd52c4c4388f9 123456 0x6 \
+    --gas 0x13759b7fa8286e0f11bd48a056cec6a10e07e35ebcc49bb640879033f1c081f1 \
+    --gas-budget 50000000
+
+    sui client call \
+    --package 0x3870f694fad7cd7548a03b33b81f7e80320085e0e69229b2f958da0a1b59cc58 \
+    --module messaging \
+    --function send_message \
+    --args 0x0248118526beb734de85718bedebc871aea93f979ba91086a02d79af0621eb4a 0x18a149d37e80d4e87a3791b6cbb6ee7efc8b66df74b34c7162434bb51ae07148 0xc864e043adf0242bbb5c690479fa75cb185a07f09fcf98b941bbd52c4c4388f9 123456 0x6 \
+    --gas 0x13759b7fa8286e0f11bd48a056cec6a10e07e35ebcc49bb640879033f1c081f1 \
+    --gas-budget 50000000
+
+    MESSAGEING FUNCTION WORKS IN THE FOLLOWING MANNER - SPLIT COIN FOR EXACTLY sui client split-coin     --coin-id 0x13759b7fa8286e0f11bd48a056cec6a10e07e35ebcc49bb640879033f1c081f1     --amounts 50000000     --gas-budget 50000000
+
+AFTER SPLITING THIS COIN, GET ITS OBJECT ID ( new payment coin id)
+
+GET THE OTHER BIG COIN IN THE WALLET AND USE ITS OBJECT ID FOR GAS
+
+sui client call \
+    --package <PACKAGE_ID> \
+    --module messaging \
+    --function send_message \
+    --args <REGISTRY_ID> <NEW_PAYMENT_COIN_ID> <RECIPIENT_ADDRESS> <CID> <CLOCK_ID> \
+    --gas <GAS_COIN_ID> \
+    --gas-budget 50000000
+
+
+
+COLLECT FEES TESTS
+
+
+
+sui client call \
+    --package 0x266522346525da16b6bf81cc7596dc4dbbaaeb3dc9400c5643efb6a72c4e4331 \
+    --module messaging \
+    --function collect_fees \
+    --args 0xc31c45deccb71bd82a5419fb2751e875573fe1ca3cbc7e843d13dedf134900a7 \
+    --gas 0x8ef18076a7616429bc139a35e8976f59ea8201cb2f17e27be17e92194732245c \
+    --gas-budget 50000000

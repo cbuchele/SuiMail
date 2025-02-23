@@ -1,159 +1,173 @@
 module suimail::messaging {
-    use sui::object::{Self, UID, ID};
     use sui::tx_context::{Self, TxContext};
-    use sui::transfer;
+    use sui::balance::{Self, Balance};
     use sui::coin::{Self, Coin};
-    use sui::clock::{Self, Clock};
+    use sui::object::{Self, UID};
+    use sui::transfer;
     use sui::sui::SUI;
     use sui::table::{Self, Table};
+    use sui::clock::{Self, Clock};
+    use suimail::admin::AdminCap;
 
     use std::vector;
-    use std::option::{Self, Option, some, none, is_some, borrow};
+    use std::option::{Self, Option};
 
     /// Error codes
     const E_NOT_AUTHORIZED: u64 = 1;
-    const E_ITEM_NOT_FOUND: u64 = 2;
-    const E_MAILBOX_EXISTS: u64 = 3;
-    const E_INSUFFICIENT_FUNDS: u64 = 4;
+    const E_MAILBOX_EXISTS: u64 = 2;
+    const E_INSUFFICIENT_FUNDS: u64 = 3;
+    const E_MAILBOX_NOT_FOUND: u64 = 4;
 
     /// Hardcoded Fee Variables
-    const MESSAGE_FEE: u64 = 100_000_000; // 0.1 SUI fee
+    const MAILBOX_CREATION_FEE: u64 = 1_000_000_000; // 0.1 SUI fee for creating a mailbox
+    const MESSAGE_SEND_FEE: u64 = 50_000_000;     // 0.05 SUI fee for sending a message
 
-    /// Message with optional NFT attachment
-    public struct MessageWithNFT has store, key {
-        id: UID,
-        sender: address,
-        receiver: address,
-        cid: vector<u8>,  // Content ID for off-chain storage (IPFS or Walrus)
-        timestamp: u64,
-        nft_object_id: Option<address>, // Optional NFT
-        claim_price: Option<u64>,       // Optional claim price in SUI
-    }
-
-    /// Simple message without NFT
-    public struct Message has store, key {
-        id: UID,
-        sender: address,
-        receiver: address,
-        cid: vector<u8>,  // Content ID for off-chain storage
-        timestamp: u64,
-    }
+    /// Admin capability for privileged actions (e.g., collecting fees)
 
     /// Mailbox for a user
-    public struct Mailbox has store, key {
+    public struct Mailbox has key, store {
         id: UID,
-        owner: address, // ✅ Add owner field
-        messages: vector<u64>, // Stores message IDs
-        next_message_id: u64,  // Auto-incrementing ID counter
+        owner: address,
+        messages: vector<Message>,
     }
 
-    /// Registry to map user addresses to their mailboxes
+    /// Message struct
+    public struct Message has store {
+        sender: address,
+        cid: vector<u8>,  // Content ID for off-chain storage (e.g., IPFS or Walrus)
+        key: vector<u8>,  // Symmetric encryption key for the message
+        timestamp: u64,
+    }
+
+    /// Central registry for managing mailboxes and collecting fees
     public struct MailboxRegistry has key {
         id: UID,
+        owner: address,  // Add an 'owner' field to store the deployer's address
         owner_to_mailbox: Table<address, Mailbox>, // Maps owner address to their mailbox
+        fee_balance: Balance<SUI>,                 // Accumulated fees from mailbox creation and message sending
+        mailbox_creation_fee: u64,                 // Fee for creating a mailbox
+        message_send_fee: u64,                     // Fee for sending a message
     }
 
-    /// Admin capability for privileged actions
-    public struct AdminCap has key {
-        id: UID,
-    }
-
-    /// Convert an `ID` to `u64` safely
-    fun id_to_numeric(id: &ID): u64 {
-        let bytes = object::id_to_bytes(id);
-        (bytes[0] as u64) | ((bytes[1] as u64) << 8) | ((bytes[2] as u64) << 16) | ((bytes[3] as u64) << 24) |
-        ((bytes[4] as u64) << 32) | ((bytes[5] as u64) << 40) | ((bytes[6] as u64) << 48) | ((bytes[7] as u64) << 56)
-    }
-
-    /// Initialize the mailbox registry
+    /// Initialize the module
     fun init(ctx: &mut TxContext) {
-        // Initialize the MailboxRegistry
-        let registry = MailboxRegistry {
+        let deployer = tx_context::sender(ctx);
+       
+        // Create and share the MailboxRegistry
+        transfer::share_object(MailboxRegistry {
             id: object::new(ctx),
+            owner: deployer,  // Set the deployer's address as the owner
             owner_to_mailbox: table::new(ctx),
-        };
-
-        // Share the registry object to make it globally accessible
-        transfer::share_object(registry);
+            fee_balance: balance::zero<SUI>(),
+            mailbox_creation_fee: MAILBOX_CREATION_FEE,
+            message_send_fee: MESSAGE_SEND_FEE,
+        });
     }
 
-    /// Create a mailbox for a user
-    public entry fun create_mailbox(registry: &mut MailboxRegistry, ctx: &mut TxContext) {
-        let owner = tx_context::sender(ctx);
-        assert!(!table::contains(&registry.owner_to_mailbox, owner), E_MAILBOX_EXISTS);
+    /// Create a mailbox for a user (requires payment of the mailbox creation fee)
+    public entry fun create_mailbox(
+    registry: &mut MailboxRegistry,
+    payment: Coin<SUI>,
+    ctx: &mut TxContext
+) {
+    let sender = tx_context::sender(ctx);
 
-        let mailbox = Mailbox {
-            id: object::new(ctx),
-            owner, // ✅ Set the owner field
-            messages: vector::empty<u64>(),
-            next_message_id: 0,
-        };
-        table::add(&mut registry.owner_to_mailbox, owner, mailbox);
-    }
+    // Ensure the sender doesn't already have a mailbox
+    assert!(!table::contains(&registry.owner_to_mailbox, sender), E_MAILBOX_EXISTS);
 
-    /// Send a message with optional NFT attachment
-    public entry fun send_message_with_nft(
+    // Ensure the sender has paid the correct fee
+    assert!(coin::value(&payment) == registry.mailbox_creation_fee, E_INSUFFICIENT_FUNDS);
+
+    // Add the payment to the fee balance
+    balance::join(&mut registry.fee_balance, coin::into_balance(payment));
+
+    // Create and assign the mailbox to the sender
+    let mailbox = Mailbox {
+        id: object::new(ctx),
+        owner: sender,
+        messages: vector::empty<Message>(),
+    };
+    table::add(&mut registry.owner_to_mailbox, sender, mailbox);
+}
+
+
+    /// Send a message to a recipient (requires payment of the message send fee)
+    public entry fun send_message(
         registry: &mut MailboxRegistry,
-        payment: &mut Coin<SUI>,
-        cid: vector<u8>, // IPFS or Walrus content ID
-        nft_object_id: Option<address>,
-        claim_price: Option<u64>,
+        payment: Coin<SUI>,
+        recipient: address,
+        cid: vector<u8>,
+        key: vector<u8>,  // Add the encryption key as an argument
         clock: &Clock,
         ctx: &mut TxContext
     ) {
         let sender = tx_context::sender(ctx);
-        let recipient_mailbox = table::borrow_mut(&mut registry.owner_to_mailbox, sender);
 
-        // Ensure the sender has enough funds to pay the fee
-        assert!(coin::value(payment) >= MESSAGE_FEE, E_INSUFFICIENT_FUNDS);
+        // Ensure the recipient has a mailbox
+        assert!(table::contains(&registry.owner_to_mailbox, recipient), E_MAILBOX_NOT_FOUND);
 
-        // Deduct the fee from the payment
-        let fee_payment = coin::split(payment, MESSAGE_FEE, ctx);
+        // Ensure the sender has paid the correct fee
+        assert!(coin::value(&payment) == registry.message_send_fee, E_INSUFFICIENT_FUNDS);
 
-        // Transfer the fee to the recipient's mailbox using public_transfer
-        transfer::public_transfer(fee_payment, recipient_mailbox.owner);
+        // Add the payment to the fee balance
+        balance::join(&mut registry.fee_balance, coin::into_balance(payment));
 
-        let message = MessageWithNFT {
-            id: object::new(ctx),
+        // Create the message
+        let message = Message {
             sender,
-            receiver: recipient_mailbox.owner,
             cid,
+            key,  // Store the encryption key
             timestamp: clock::timestamp_ms(clock),
-            nft_object_id,
-            claim_price,
         };
 
-        let message_id = object::id(&message);
-        transfer::public_share_object(message);
-        let message_numeric_id = id_to_numeric(&message_id);
-
-        vector::push_back(&mut recipient_mailbox.messages, message_numeric_id);
+        // Add the message to the recipient's mailbox
+        let recipient_mailbox = table::borrow_mut(&mut registry.owner_to_mailbox, recipient);
+        vector::push_back(&mut recipient_mailbox.messages, message);
     }
+    
 
-    /// Delete a message from a mailbox
-    public entry fun delete_message(
+    // Collect accumulated fees (only callable by the deployer)
+    public entry fun collect_fees(
         registry: &mut MailboxRegistry,
-        message_id: u64,
         ctx: &mut TxContext
     ) {
-        let owner = tx_context::sender(ctx);
-        let mailbox = table::borrow_mut(&mut registry.owner_to_mailbox, owner);
+        let deployer = tx_context::sender(ctx);
 
-        let (found, index) = vector::index_of(&mailbox.messages, &message_id);
-        assert!(found, E_ITEM_NOT_FOUND);
+        // Ensure the sender is the deployer (this checks against the address that deployed the contract)
+        assert!(deployer == registry.owner, E_NOT_AUTHORIZED);
 
-        vector::remove(&mut mailbox.messages, index);
+        let amount = balance::value(&registry.fee_balance);
+        let fees = coin::take(&mut registry.fee_balance, amount, ctx);
+
+        // Transfer the collected fees to the deployer
+        transfer::public_transfer(fees, deployer);
+    }
+    
+    /// Update the mailbox creation fee (only callable by the deployer)
+    public entry fun set_mailbox_creation_fee(
+        registry: &mut MailboxRegistry,
+        new_fee: u64,
+        ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+
+        // Ensure the sender is the deployer (owner)
+        assert!(sender == registry.owner, E_NOT_AUTHORIZED);
+
+        registry.mailbox_creation_fee = new_fee;
     }
 
-    /// Get all message IDs in a mailbox
-    public fun get_messages(registry: &MailboxRegistry, owner: address): vector<u64> {
-        let mailbox = table::borrow(&registry.owner_to_mailbox, owner);
-        mailbox.messages
-    }
+    /// Update the message send fee (only callable by the deployer)
+    public entry fun set_message_send_fee(
+        registry: &mut MailboxRegistry,
+        new_fee: u64,
+        ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
 
-    /// Get the number of messages in a mailbox
-    public fun get_mailbox_length(registry: &MailboxRegistry, owner: address): u64 {
-        let mailbox = table::borrow(&registry.owner_to_mailbox, owner);
-        vector::length(&mailbox.messages)
+        // Ensure the sender is the deployer (owner)
+        assert!(sender == registry.owner, E_NOT_AUTHORIZED);
+
+        registry.message_send_fee = new_fee;
     }
 }

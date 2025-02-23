@@ -1,5 +1,5 @@
 module suimail::profile {
-    use sui::object::{Self, UID};
+    use sui::object::{Self, UID, ID};
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
     use std::option::{Self, Option};
@@ -7,6 +7,7 @@ module suimail::profile {
     use suimail::admin::AdminCap;
 
     const ENotAuthorized: u64 = 1;
+    const EKioskAlreadyLinked: u64 = 2;
 
     /// Represents a user's profile with customizable fields.
     public struct UserProfile has store, key {
@@ -16,7 +17,7 @@ module suimail::profile {
         bio: vector<u8>,
         avatar_cid: vector<u8>,
         owner: address,
-        kiosk_id: option::Option<address>, // Linked kiosk
+        kiosk_id: Option<ID>, // Linked kiosk ID
     }
 
     /// Create a new user profile (user-specific function).
@@ -64,10 +65,15 @@ module suimail::profile {
     ) {
         let caller = tx_context::sender(ctx);
         assert!(caller == profile.owner, ENotAuthorized); // Ensure caller is the owner
-        assert!(option::is_none(&profile.kiosk_id), 2);   // Ensure no kiosk is linked yet
+        assert!(option::is_none(&profile.kiosk_id), EKioskAlreadyLinked); // Ensure no kiosk is linked yet
 
-        let kiosk_owner = suimail::kiosk::get_owner(kiosk); // Use the getter function
-        profile.kiosk_id = option::some(kiosk_owner);
+        // Verify that the caller is the owner of the kiosk
+        let kiosk_owner = suimail::kiosk::get_owner(kiosk);
+        assert!(caller == kiosk_owner, ENotAuthorized);
+
+        // Store the kiosk ID in the profile
+        let kiosk_id = object::id(kiosk);
+        profile.kiosk_id = option::some(kiosk_id);
     }
 
     /// Reset a user profile (admin-only function).
