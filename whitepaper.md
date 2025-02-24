@@ -87,4 +87,30 @@ TIMELINE AFTER SPONSORSHIP NFT ALLOCATION IS DONE
 
 Founding sponsors will be ranked in Tier by the amount of SUI they sponsorered, and their NFT after the STAMPS launch will be able too A, be staked in our own STAMPS Liquidity pool and earn percentage of the rewards based on the tier of their NFT, or B they can swap their NFT out for STAMPS immediatly after launch ( of course with anti jeet tecnology in place )
 
+FOUNDER SPONSOR NFT HOLDERS WILL EARN A PERCENTAGE OF ALL STORES SALES FEES WHILE STAKED
+
+meaning % of all sales that happened on the platform.
+
 We will open the Sponsorship immediatly
+
+ok so now we need too add the mint sponsor nft function, and the edit sponsor nft function, this is how its going too work
+
+The sponsor will mint an nft at the price minimum of 10 SUI, we will include a variable in the nft that can be editted that will work in the following manner
+
+sponsors that buy our NFT and donate 10 - 1000 SUI, will be located in TIER 4
+1000 - 4999 SUI TIER 3
+5000 - 49999 SUI TIER 2 
+50000 SUI TIER 1
+
+DO NOT PUT MORE THAN 50,000 SUI IN ONE NFT 
+
+THERE WILL ONLY BE 10 TIER 4 NFTS ALLOWED TO BE EDITTED
+100 TIER 2
+1000 TIER 3
+10000 TIER 4
+
+THIS WILL BE A TOTAL OF 40% OF ALL FEES GENERATED ON OUR STORES PLATFORM SPLIT BETWEEN THE OWNERS OF THESE NFTS!!! THE NFTS MUST BE STAKED FOR YOU TOO EARN YOUR %, AND IT WILL BE DISTRIBUTED BETWEEN ALL HOLDERS EVERY 24 HOURS
+
+So we need too mint the NFT originally they will start at TIER 4, and there is a MAX of 10,000 of these that exist at all times. 
+
+then we have the TIER 3 NFTS, since we want users too be able too add sponsorship funds too their nft , too raise the TIER, once the user reaches the determined amount for the next TIER, he should be able too call a function that will update his NFT too the next TIER, and some way for us too make sure that there are only max of 1000 TIER 3 NFTS at a time, and we should follow this until we have TIER 1 NFT, where the user cant put any more than 50,000 SUI

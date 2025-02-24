@@ -1,6 +1,6 @@
 [package]
 name = "suimail"
-edition = "2024.beta"
+edition = "2024"
 license = "MIT"
 authors = ["Your Name (yourname@example.com)"]
 

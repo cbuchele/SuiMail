@@ -6,10 +6,9 @@ module suimail::kiosk {
     use sui::clock::{Self, Clock};
     use sui::balance::{Self, Balance};
     use sui::sui::SUI;
-
     use std::vector;
     use std::option::{Self, Option};
-
+    use suimail::nft_staking::{Self, StakingPool, StakedNFT};
     /// Error codes
     const EItemNotFound: u64 = 1;
     const EIncorrectPayment: u64 = 2;
@@ -19,6 +18,7 @@ module suimail::kiosk {
 
     /// Hardcoded Fee Variables
     const KIOSK_CREATION_FEE: u64 = 10_000_000_000; // 10 SUI fee for creating a kiosk
+    const SALES_FEE_PERCENTAGE: u64 = 5; // 5% sales fee
 
     /// Registry to track all kiosks on-chain.
     public struct KioskRegistry has key, store {
@@ -44,7 +44,9 @@ module suimail::kiosk {
         id: UID,
         owner: address,
         items: vector<KioskItem>, // List of items for sale
-        balance: Coin<SUI>,       // Accumulated balance from sales in SUI
+        balance: Balance<SUI>,       // Accumulated balance from sales in SUI
+        fee_balance: Balance<SUI>, // Accumulated fees from sales
+
     }
 
     /// ✅ Automatically initialize the kiosk registry when the module is published.
@@ -109,7 +111,8 @@ module suimail::kiosk {
             id: object::new(ctx),
             owner: sender,
             items: vector::empty<KioskItem>(),
-            balance: coin::zero(ctx),
+            balance: balance::zero<SUI>(),
+            fee_balance: balance::zero<SUI>(),
         };
 
         let kiosk_id = object::id(&kiosk);
@@ -120,22 +123,64 @@ module suimail::kiosk {
         transfer::public_share_object(kiosk);
     }
 
-    /// Withdraw accumulated fees from the KioskRegistry (only callable by the deployer)
-    public entry fun withdraw_fees(
-        registry: &mut KioskRegistry,
-        ctx: &mut TxContext
-    ) {
-        let sender = tx_context::sender(ctx);
 
-        // Ensure the sender is the deployer (owner)
-        assert!(sender == registry.owner, ENotAuthorized);
+    public entry fun distribute_fees(
+    registry: &mut KioskRegistry,
+    staking_pool: &mut StakingPool,
+    ctx: &mut TxContext
+) {
+    let sender = tx_context::sender(ctx);
+    assert!(sender == registry.owner, ENotAuthorized);
 
-        let amount = balance::value(&registry.fee_balance);
-        let fees = coin::take(&mut registry.fee_balance, amount, ctx);
+    let total_fees = balance::value(&registry.fee_balance);
+    let mut fees = coin::take(&mut registry.fee_balance, total_fees, ctx); // Declare fees as mutable
 
-        // Transfer the collected fees to the deployer
-        transfer::public_transfer(fees, sender);
-    }
+    let nft_holder_percentage = nft_staking::calculate_nft_holder_percentage(staking_pool);
+    let _owner_percentage = 100 - nft_holder_percentage;
+
+    let nft_holder_share = (total_fees * nft_holder_percentage) / 100;
+    let _owner_share = total_fees - nft_holder_share;
+
+    let staked_nfts = nft_staking::get_staked_nfts(staking_pool);
+    let mut i = 0;
+    while (i < vector::length(staked_nfts)) {
+        let staked_nft: &StakedNFT = vector::borrow(staked_nfts, i);
+        let tier = nft_staking::get_tier(staked_nft); // Use the accessor function for `tier`
+        let owner = nft_staking::get_owner(staked_nft); // Use the accessor function for `owner`
+        let percentage = if (tier == 1) {
+            nft_staking::get_tier_1_percentage()
+        } else if (tier == 2) {
+            nft_staking::get_tier_2_percentage()
+        } else if (tier == 3) {
+            nft_staking::get_tier_3_percentage()
+        } else if (tier == 4) {
+            nft_staking::get_tier_4_percentage()
+        } else {
+            0
+        };
+
+        let share = (nft_holder_share * percentage) / nft_holder_percentage;
+        if (share > 0) {
+            let coin = coin::split(&mut fees, share, ctx); // Now fees is mutable
+            transfer::public_transfer(coin, owner); // Use the `owner` variable
+        };
+
+        i = i + 1;
+    };
+
+    if (_owner_share > 0) {
+        let owner_coin = coin::split(&mut fees, _owner_share, ctx); // Now fees is mutable
+        transfer::public_transfer(owner_coin, registry.owner);
+    };
+
+    balance::join(&mut registry.fee_balance, coin::into_balance(fees));
+}
+
+
+
+
+    
+
 
     /// Publish a new item to the kiosk (owner-only)
     public entry fun publish_item(
@@ -185,68 +230,62 @@ module suimail::kiosk {
 
     /// Buy an item from the kiosk by paying the specified price.
     public entry fun buy_item(
-        kiosk: &mut UserKiosk,
-        item_id: u64,
-        payment: Coin<SUI>,
-        ctx: &mut TxContext
-    ) {
-        assert!(has_item(kiosk, item_id), EItemNotFound); // Ensure the item exists
+    kiosk: &mut UserKiosk,
+    item_id: u64,
+    mut payment: Coin<SUI>, // Declare payment as mutable
+    ctx: &mut TxContext
+) {
+    assert!(has_item(kiosk, item_id), EItemNotFound); // Ensure the item exists
 
-        let mut index = option::none();
-        let mut i = 0;
+    let mut index = option::none();
+    let mut i = 0;
 
-        while (i < vector::length(&kiosk.items)) {
-            if (vector::borrow(&kiosk.items, i).id == item_id) {
-                index = option::some(i);
-                break;
-            };
-            i = i + 1;
+    while (i < vector::length(&kiosk.items)) {
+        if (vector::borrow(&kiosk.items, i).id == item_id) {
+            index = option::some(i);
+            break;
         };
+        i = i + 1;
+    };
 
-        let idx = option::get_with_default(&index, 0);
-        let item = vector::borrow(&kiosk.items, idx);
+    let idx = option::get_with_default(&index, 0);
+    let item = vector::borrow(&kiosk.items, idx);
 
-        // Ensure the payment matches the price
-        assert!(coin::value(&payment) == item.price, EIncorrectPayment);
+    // Ensure the payment matches the price
+    assert!(coin::value(&payment) == item.price, EIncorrectPayment);
 
-        // Merge the payment into the kiosk's balance
-        coin::join(&mut kiosk.balance, payment);
+    // Calculate the fee
+    let fee_amount = (item.price * SALES_FEE_PERCENTAGE) / 100;
+    let net_amount = item.price - fee_amount;
 
-        // Remove the item from the kiosk
-        vector::remove(&mut kiosk.items, idx);
-    }
+    // Split the payment into fee and net amount
+    let fee_coin = coin::split(&mut payment, fee_amount, ctx);
+    let net_coin = payment;
+
+    // Add the fee to the fee balance
+    balance::join(&mut kiosk.fee_balance, coin::into_balance(fee_coin));
+
+    // Add the net payment to the kiosk's balance
+    balance::join(&mut kiosk.balance, coin::into_balance(net_coin));
+
+    // Remove the item from the kiosk
+    vector::remove(&mut kiosk.items, idx);
+}
 
     /// Withdraw accumulated funds from the kiosk.
     public entry fun withdraw_funds(
-        kiosk: &mut UserKiosk,
-        ctx: &mut TxContext
-    ) {
-        let owner = tx_context::sender(ctx); // Get the sender's address
-        assert!(is_owner(kiosk, owner), ENotAuthorized); // Ensure only the owner can withdraw
+    kiosk: &mut UserKiosk,
+    ctx: &mut TxContext
+) {
+    let owner = tx_context::sender(ctx); // Get the sender's address
+    assert!(is_owner(kiosk, owner), ENotAuthorized); // Ensure only the owner can withdraw
 
-        let amount = coin::value(&kiosk.balance);
-        let coin = coin::split(&mut kiosk.balance, amount, ctx); // Split the coin to withdraw the balance
+    let amount = balance::value(&kiosk.balance);
+    let coin = coin::take(&mut kiosk.balance, amount, ctx); // Convert Balance<SUI> to Coin<SUI>
 
-        transfer::public_transfer(coin, owner); // Use public_transfer to send the coin to the owner
-    }
+    transfer::public_transfer(coin, owner); // Use public_transfer to send the coin to the owner
+}
 
-    /// Returns all kiosks on-chain
-    public fun get_all_kiosks(registry: &KioskRegistry): &vector<ID> {
-        &registry.kiosks
-    }
-
-    /// Delete the entire kiosk (owner-only)
-    public entry fun delete_kiosk(
-        kiosk: UserKiosk,
-        ctx: &mut TxContext
-    ) {
-        let owner = tx_context::sender(ctx);
-        assert!(is_owner(&kiosk, owner), ENotAuthorized); // 👈 Ownership check
-        
-        let UserKiosk { id, balance, items: _, owner: _ } = kiosk;
-        transfer::public_transfer(balance, owner);
-        object::delete(id);
-    }
 
     public fun verify_kiosk_ownership(registry: &KioskRegistry, kiosk_id: ID, caller: address): bool {
         let mut i = 0;
@@ -266,6 +305,10 @@ module suimail::kiosk {
 
     /// Get the total balance accumulated in the kiosk.
     public fun get_kiosk_balance(kiosk: &UserKiosk): u64 {
-        coin::value(&kiosk.balance)
+    balance::value(&kiosk.balance)
+}
+
+    public fun get_kiosk_fee_balance(kiosk: &UserKiosk): u64 {
+        balance::value(&kiosk.fee_balance)
     }
 }
