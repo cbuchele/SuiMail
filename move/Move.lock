@@ -40,7 +40,7 @@ latest-published-id = "0x851fb09e8030b9a6344591350e9e96de31018503f339acb39c48f3b
 published-version = "1"
 
 [env.Develop]
-chain-id = "c7d33c3f"
-original-published-id = "0x756e89571b70d22122dbbd476193a3188851e106ddb0986bd47e529cb964f07c"
-latest-published-id = "0x756e89571b70d22122dbbd476193a3188851e106ddb0986bd47e529cb964f07c"
+chain-id = "b6ba1d54"
+original-published-id = "0xe0c3db766bb1d3f05d8864690ddddbcfbd9815b04df18444581b0e7f18737955"
+latest-published-id = "0xe0c3db766bb1d3f05d8864690ddddbcfbd9815b04df18444581b0e7f18737955"
 published-version = "1"

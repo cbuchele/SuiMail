@@ -75,7 +75,7 @@ The introduction of the STAMPS token will bring a new dimension to SuiMail, offe
 2. Enhanced Privacy Features
 Building upon the existing privacy framework, SuiMail plans to implement additional security
 
-
+SuiMail current progress and timeline 
 
 
 TIMELINE AFTER SPONSORSHIP NFT ALLOCATION IS DONE
@@ -114,3 +114,23 @@ THIS WILL BE A TOTAL OF 40% OF ALL FEES GENERATED ON OUR STORES PLATFORM SPLIT B
 So we need too mint the NFT originally they will start at TIER 4, and there is a MAX of 10,000 of these that exist at all times. 
 
 then we have the TIER 3 NFTS, since we want users too be able too add sponsorship funds too their nft , too raise the TIER, once the user reaches the determined amount for the next TIER, he should be able too call a function that will update his NFT too the next TIER, and some way for us too make sure that there are only max of 1000 TIER 3 NFTS at a time, and we should follow this until we have TIER 1 NFT, where the user cant put any more than 50,000 SUI
+
+With SuiMail Stores you can turn any moment or image into a collectable
+
+Each user will be able too purchase their own store, and in this store, the user can upload a photo, (jpeg,png,jpg)
+And this image will be listed with a SUI price in their store.
+
+If a buyer comes along and decided too buy this image, it will be turned into an NFT and sent too the buyer, and the sellers funds will remain in his store where he can interact with it and withdraw whenever he wants!
+
+Your profile in SuiMail is your way of representing yourself, you will have a username with an @, as well as a display name, and a bio.  Managing your store from your profile tab you will be able too add or delete items too your own store, as well as withdraw the funds your store has gathered.
+
+Each store can have a maximum of 8 items listed at a time.
+
+
+Mailbox
+Our Suimail mail system works with a completely encrypted storage using Walrus ( all of our storage we are proudly using walrus, and this should be a selling point on our site and homepage, all emails, images and storage means being used in our dapp right now is through walrus and sui blockchain.)
+
+We believe that this is the future of true uncensored communication, Our SuiMail service will fully incorporate the use of SuiNS, so if you have a Sui NS, you will be able too use it too send and receive emails on the Suimail platform.
+
+Suimail is completely decentralized useing only decentralized storage through walrus, and indexing storage through SUI, we have no database holding external user data and are 100% decentralized!
+

@@ -31,9 +31,9 @@ module suimail::messaging {
         messages: vector<Message>,
     }
 
-    /// Message struct
+    /// Message struct BRAINSTORM, IN MESSAGES THE SENDER * IS TECNICALLY THE OWNER , SO WE NEED THIS TOO BE RECIPIENT NOT SENDER
     public struct Message has store {
-        sender: address,
+        recipient: address,
         cid: vector<u8>,  // Content ID for off-chain storage (e.g., IPFS or Walrus)
         key: vector<u8>,  // Symmetric encryption key for the message
         timestamp: u64,
@@ -114,7 +114,7 @@ module suimail::messaging {
 
         // Create the message
         let message = Message {
-            sender,
+            recipient,
             cid,
             key,  // Store the encryption key
             timestamp: clock::timestamp_ms(clock),

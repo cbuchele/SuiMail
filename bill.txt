@@ -71,11 +71,11 @@ COLLECT FEES TESTS
 
 
 sui client call \
-    --package 0x266522346525da16b6bf81cc7596dc4dbbaaeb3dc9400c5643efb6a72c4e4331 \
+    --package 0xe0c3db766bb1d3f05d8864690ddddbcfbd9815b04df18444581b0e7f18737955 \
     --module messaging \
     --function collect_fees \
-    --args 0xc31c45deccb71bd82a5419fb2751e875573fe1ca3cbc7e843d13dedf134900a7 \
-    --gas 0x8ef18076a7616429bc139a35e8976f59ea8201cb2f17e27be17e92194732245c \
+    --args 0x06a8ebebc7a7216006df60416e439d7745c46517a7c547d8b2445f859d3e9adc \
+    --gas 0x13e8a9947d925dae7cab58c4c1f4f532d53bb0db314d638971af6e4a91e46a71 \
     --gas-budget 50000000
 
 
@@ -100,3 +100,9 @@ sui client call \
     --args 0xc8d07e5ef07cf070b91e65329fb4be0bf891d9b5dd3fa931202480bd6d2ce2ea 0x64dff43077ddee32d151162a92229857f1828029447d245ec520263e4700d53b 0x4662e0a10bb0244d686eb5a6758e5d84b9be83e8e1b2e7ef9d68fffd2bb75e6e 123456 12345655 0x6 \
     --gas 0x031a9b98ae6f949b5f13199e724c28e7f5628f3821dac02fcd688a6ba3723579 \
     --gas-budget 50000000
+
+
+
+
+
+    

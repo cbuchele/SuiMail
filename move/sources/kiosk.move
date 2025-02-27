@@ -248,6 +248,7 @@ module suimail::kiosk {
     let mut index = option::none();
     let mut i = 0;
 
+    // Find the index of the item to be removed
     while (i < vector::length(&kiosk.items)) {
         if (vector::borrow(&kiosk.items, i).id == item_id) {
             index = option::some(i);
@@ -257,14 +258,16 @@ module suimail::kiosk {
     };
 
     let idx = option::get_with_default(&index, 0);
-    let item = vector::borrow(&kiosk.items, idx);
+
+    // Extract the item's price before removing it
+    let item_price = vector::borrow(&kiosk.items, idx).price;
 
     // Ensure the payment matches the price
-    assert!(coin::value(&payment) == item.price, EIncorrectPayment);
+    assert!(coin::value(&payment) == item_price, EIncorrectPayment);
 
     // Calculate the fee
-    let fee_amount = (item.price * SALES_FEE_PERCENTAGE) / 100;
-    let net_amount = item.price - fee_amount;
+    let fee_amount = (item_price * SALES_FEE_PERCENTAGE) / 100;
+    let net_amount = item_price - fee_amount;
 
     // Split the payment into fee and net amount
     let fee_coin = coin::split(&mut payment, fee_amount, ctx);
@@ -277,7 +280,7 @@ module suimail::kiosk {
     balance::join(&mut kiosk.balance, coin::into_balance(net_coin));
 
     // Remove the item from the kiosk
-    vector::remove(&mut kiosk.items, idx);
+    let item = vector::remove(&mut kiosk.items, idx);
 
     // Mint the item as an NFT
     let nft = KioskNFT {

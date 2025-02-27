@@ -39,6 +39,14 @@ module suimail::kiosk {
         timestamp: u64,  // Timestamp of when the item was listed
     }
 
+    public struct KioskNFT has key, store {
+    id: UID, // Unique identifier for the NFT
+    title: vector<u8>, // Title of the item
+    content_cid: vector<u8>, // Content CID (image or other metadata)
+    price: u64, // Price of the item
+    timestamp: u64, // Timestamp of when the item was created
+}
+
     /// Represents a user's kiosk with items for sale and accumulated balance.
     public struct UserKiosk has store, key {
         id: UID,
@@ -240,6 +248,7 @@ module suimail::kiosk {
     let mut index = option::none();
     let mut i = 0;
 
+    // Find the index of the item to be removed
     while (i < vector::length(&kiosk.items)) {
         if (vector::borrow(&kiosk.items, i).id == item_id) {
             index = option::some(i);
@@ -249,14 +258,16 @@ module suimail::kiosk {
     };
 
     let idx = option::get_with_default(&index, 0);
-    let item = vector::borrow(&kiosk.items, idx);
+
+    // Extract the item's price before removing it
+    let item_price = vector::borrow(&kiosk.items, idx).price;
 
     // Ensure the payment matches the price
-    assert!(coin::value(&payment) == item.price, EIncorrectPayment);
+    assert!(coin::value(&payment) == item_price, EIncorrectPayment);
 
     // Calculate the fee
-    let fee_amount = (item.price * SALES_FEE_PERCENTAGE) / 100;
-    let net_amount = item.price - fee_amount;
+    let fee_amount = (item_price * SALES_FEE_PERCENTAGE) / 100;
+    let net_amount = item_price - fee_amount;
 
     // Split the payment into fee and net amount
     let fee_coin = coin::split(&mut payment, fee_amount, ctx);
@@ -269,7 +280,19 @@ module suimail::kiosk {
     balance::join(&mut kiosk.balance, coin::into_balance(net_coin));
 
     // Remove the item from the kiosk
-    vector::remove(&mut kiosk.items, idx);
+    let item = vector::remove(&mut kiosk.items, idx);
+
+    // Mint the item as an NFT
+    let nft = KioskNFT {
+        id: object::new(ctx), // Generate a new UID for the NFT
+        title: item.title, // Include the item title
+        content_cid: item.content_cid, // Include the content CID
+        price: item.price, // Include the price
+        timestamp: item.timestamp, // Include the timestamp
+    };
+
+    // Transfer the NFT to the buyer
+    transfer::public_transfer(nft, tx_context::sender(ctx));
 }
 
     /// Withdraw accumulated funds from the kiosk.
