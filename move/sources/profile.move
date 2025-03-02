@@ -15,8 +15,8 @@ module suimail::profile {
     /// Registry to store all user profiles
     public struct ProfileRegistry has key {
         id: UID,
-        profiles: Table<address, UserProfile>, // Maps owner address to their profile
-        owner: address, // Admin/owner of the registry (deployer)
+        profiles: Table<address, UserProfile>,
+        owner: address,
     }
 
     /// Represents a user's profile with customizable fields
@@ -27,7 +27,7 @@ module suimail::profile {
         bio: vector<u8>,
         avatar_cid: vector<u8>,
         owner: address,
-        kiosk_id: Option<ID>, // Linked kiosk ID
+        kiosk_id: Option<ID>,
     }
 
     /// Initialize the ProfileRegistry (called once during deployment)
@@ -40,7 +40,7 @@ module suimail::profile {
         });
     }
 
-    /// Create a new user profile (user-specific function)
+    /// Create a new user profile (limited to one per user)
     public entry fun register_profile(
         registry: &mut ProfileRegistry,
         username: vector<u8>,
@@ -50,7 +50,7 @@ module suimail::profile {
         ctx: &mut TxContext
     ) {
         let owner = tx_context::sender(ctx);
-        assert!(!table::contains(&registry.profiles, owner), EProfileAlreadyExists); // Ensure no profile exists
+        assert!(!table::contains(&registry.profiles, owner), EProfileAlreadyExists);
 
         let profile = UserProfile {
             id: object::new(ctx),
@@ -62,7 +62,7 @@ module suimail::profile {
             kiosk_id: option::none(),
         };
 
-        table::add(&mut registry.profiles, owner, profile); // Store in registry
+        table::add(&mut registry.profiles, owner, profile);
     }
 
     /// Update the profile (user-specific function)
@@ -74,10 +74,10 @@ module suimail::profile {
         ctx: &mut TxContext
     ) {
         let caller = tx_context::sender(ctx);
-        assert!(table::contains(&registry.profiles, caller), EProfileNotFound); // Ensure profile exists
+        assert!(table::contains(&registry.profiles, caller), EProfileNotFound);
 
         let profile = table::borrow_mut(&mut registry.profiles, caller);
-        assert!(caller == profile.owner, ENotAuthorized); // Ensure caller is the owner
+        assert!(caller == profile.owner, ENotAuthorized);
 
         profile.display_name = display_name;
         profile.bio = bio;
@@ -91,14 +91,14 @@ module suimail::profile {
         ctx: &mut TxContext
     ) {
         let caller = tx_context::sender(ctx);
-        assert!(table::contains(&registry.profiles, caller), EProfileNotFound); // Ensure profile exists
+        assert!(table::contains(&registry.profiles, caller), EProfileNotFound);
 
         let profile = table::borrow_mut(&mut registry.profiles, caller);
-        assert!(caller == profile.owner, ENotAuthorized); // Ensure caller is the owner
-        assert!(option::is_none(&profile.kiosk_id), EKioskAlreadyLinked); // Ensure no kiosk is linked yet
+        assert!(caller == profile.owner, ENotAuthorized);
+        assert!(option::is_none(&profile.kiosk_id), EKioskAlreadyLinked);
 
         let kiosk_owner = suimail::kiosk::get_owner(kiosk);
-        assert!(caller == kiosk_owner, ENotAuthorized); // Verify kiosk ownership
+        assert!(caller == kiosk_owner, ENotAuthorized);
 
         let kiosk_id = object::id(kiosk);
         profile.kiosk_id = option::some(kiosk_id);
@@ -112,8 +112,8 @@ module suimail::profile {
         ctx: &mut TxContext
     ) {
         let admin = tx_context::sender(ctx);
-        assert!(admin == registry.owner, ENotAuthorized); // Ensure caller is the registry owner
-        assert!(table::contains(&registry.profiles, user), EProfileNotFound); // Ensure profile exists
+        assert!(admin == registry.owner, ENotAuthorized);
+        assert!(table::contains(&registry.profiles, user), EProfileNotFound);
 
         let profile = table::borrow_mut(&mut registry.profiles, user);
         profile.display_name = vector::empty();
@@ -128,12 +128,17 @@ module suimail::profile {
         ctx: &mut TxContext
     ) {
         let caller = tx_context::sender(ctx);
-        assert!(table::contains(&registry.profiles, caller), EProfileNotFound); // Ensure profile exists
+        assert!(table::contains(&registry.profiles, caller), EProfileNotFound);
 
         let profile = table::remove(&mut registry.profiles, caller);
-        assert!(caller == profile.owner, ENotAuthorized); // Ensure caller is the owner
+        assert!(caller == profile.owner, ENotAuthorized);
 
         let UserProfile { id, username: _, display_name: _, bio: _, avatar_cid: _, owner: _, kiosk_id: _ } = profile;
-        object::delete(id); // Delete the profile UID
+        object::delete(id);
+    }
+
+    #[test_only]
+    public fun init_for_testing(ctx: &mut TxContext) {
+        init(ctx);
     }
 }

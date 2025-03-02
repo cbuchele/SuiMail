@@ -20,6 +20,7 @@ module suimail::kiosk {
     const EMaxItemsReached: u64 = 4;
     const E_INSUFFICIENT_FUNDS: u64 = 5;
     const ENoFeesToWithdraw: u64 = 6;
+    const EUserAlreadyHasKiosk: u64 = 7;
 
     /// Hardcoded Fee Variables
     const KIOSK_CREATION_FEE: u64 = 10_000_000_000; // 10 SUI fee for creating a kiosk
@@ -56,7 +57,7 @@ module suimail::kiosk {
         description: String,
         price: u64,
         timestamp: u64,
-        metadata: vector<u8>, // Optional JSON for additional data
+        metadata: vector<u8>,
     }
 
     /// Represents a user's kiosk with items for sale and accumulated balance
@@ -67,7 +68,7 @@ module suimail::kiosk {
         balance: Balance<SUI>,
     }
 
-    /// Initialize the kiosk registry and display when the module is published
+    /// Initialize the kiosk registry and display
     fun init(otw: KIOSK, ctx: &mut TxContext) {
         let deployer = tx_context::sender(ctx);
         let registry = KioskRegistry {
@@ -81,22 +82,15 @@ module suimail::kiosk {
         };
         transfer::share_object(registry);
 
-        // Claim the Publisher object and set up Display<KioskNFT>
         let publisher = package::claim(otw, ctx);
         let mut display = display::new<KioskNFT>(&publisher, ctx);
-
-        // Define display fields
         display::add(&mut display, string::utf8(b"name"), string::utf8(b"{name}"));
         display::add(&mut display, string::utf8(b"image_url"), string::utf8(b"{image_url}"));
         display::add(&mut display, string::utf8(b"description"), string::utf8(b"{description}"));
         display::add(&mut display, string::utf8(b"project_url"), string::utf8(b"https://suimail.xyz"));
         display::add(&mut display, string::utf8(b"creator"), string::utf8(b"Kiosk Creator"));
-        
-        // Optional: Add price and timestamp as attributes (not standard, but useful)
         display::add(&mut display, string::utf8(b"price"), string::utf8(b"{price}"));
         display::add(&mut display, string::utf8(b"timestamp"), string::utf8(b"{timestamp}"));
-
-        // Publish the Display
         display::update_version(&mut display);
 
         transfer::public_transfer(publisher, deployer);
@@ -125,6 +119,18 @@ module suimail::kiosk {
         false
     }
 
+    /// Check if the sender already owns a kiosk in the registry
+    fun user_has_kiosk(registry: &KioskRegistry, sender: address): bool {
+        let mut i = 0;
+        while (i < vector::length(&registry.owners)) {
+            if (*vector::borrow(&registry.owners, i) == sender) {
+                return true;
+            };
+            i = i + 1;
+        };
+        false
+    }
+
     /// Convert an `ID` to `u64` safely
     fun id_to_numeric(id: &ID): u64 {
         let bytes = object::id_to_bytes(id);
@@ -132,13 +138,15 @@ module suimail::kiosk {
         ((bytes[4] as u64) << 32) | ((bytes[5] as u64) << 40) | ((bytes[6] as u64) << 48) | ((bytes[7] as u64) << 56)
     }
 
-    /// Initialize a new kiosk and register it
+    /// Initialize a new kiosk and register it (limited to one per user)
     public entry fun init_kiosk(
         registry: &mut KioskRegistry,
         payment: Coin<SUI>,
         ctx: &mut TxContext
     ) {
         let sender = tx_context::sender(ctx);
+        // Check if the sender already has a kiosk
+        assert!(!user_has_kiosk(registry, sender), EUserAlreadyHasKiosk);
         assert!(coin::value(&payment) == registry.kiosk_creation_fee, E_INSUFFICIENT_FUNDS);
         balance::join(&mut registry.fee_balance, coin::into_balance(payment));
 
@@ -155,11 +163,10 @@ module suimail::kiosk {
         transfer::public_share_object(kiosk);
     }
 
-    /// Distribute kiosk sponsor fees to NFT holders and registry owner
     public entry fun distribute_fees(
     registry: &mut KioskRegistry,
     staking_pool: &mut StakingPool,
-    nft_registry: &nft_staking::NFTCollectionRegistry,
+    nft_registry: &NFTCollectionRegistry,
     ctx: &mut TxContext
 ) {
     let sender = tx_context::sender(ctx);
@@ -170,58 +177,76 @@ module suimail::kiosk {
 
     let mut fees = coin::take(&mut registry.kiosk_sponsor_fees, total_fees_value, ctx);
 
-    let nft_holder_percentage = nft_staking::calculate_nft_holder_percentage(staking_pool);
-    let _owner_percentage = 100 - nft_holder_percentage;
+    // Define tier percentages and max NFTs
+    let tier_percentages: vector<u64> = vector[10u64, 10u64, 10u64, 10u64];
+    let max_nfts_per_tier: vector<u64> = vector[10u64, 100u64, 1000u64, 10000u64];
 
-    let nft_holder_share = (total_fees_value * nft_holder_percentage) / 100;
-    let _owner_share = total_fees_value - nft_holder_share;
-
+    // Step 1: Collect staked NFT info
     let staked_nfts = nft_staking::get_staked_nfts(staking_pool);
-    let total_staked = vector::length(staked_nfts);
-    if (total_staked == 0) {
-        let owner_coin = coin::split(&mut fees, total_fees_value, ctx);
+    let total_staked: u64 = vector::length(staked_nfts);
+    let mut staked_per_tier: vector<u64> = vector[0u64, 0u64, 0u64, 0u64];
+    let mut owners: vector<address> = vector::empty<address>();
+    let mut tiers: vector<u64> = vector::empty<u64>();
+    let mut i: u64 = 0;
+    while (i < total_staked) {
+        let staked_nft = vector::borrow(staked_nfts, i);
+        let tier: u64 = (nft_staking::get_tier(staked_nft, nft_registry) as u64) - 1u64; // Cast u8 to u64
+        let owner = nft_staking::get_owner(staked_nft);
+        let current_count: u64 = *vector::borrow(&staked_per_tier, tier);
+        *vector::borrow_mut(&mut staked_per_tier, tier) = current_count + 1u64;
+        vector::push_back(&mut owners, owner);
+        vector::push_back(&mut tiers, tier);
+        i = i + 1u64;
+    };
+
+    // Step 2: Calculate max share per NFT and total payout
+    let mut total_nft_holder_share: u64 = 0;
+    let mut shares: vector<u64> = vector::empty<u64>();
+    i = 0u64;
+    while (i < 4u64) {
+        let tier_share: u64 = (total_fees_value * *vector::borrow(&tier_percentages, i)) / 100u64;
+        let max_nfts: u64 = *vector::borrow(&max_nfts_per_tier, i);
+        let max_per_nft: u64 = tier_share / max_nfts;
+        let staked_count: u64 = *vector::borrow(&staked_per_tier, i);
+        
+        let tier_payout: u64 = if (staked_count > 0u64) {
+            let potential_payout: u64 = staked_count * max_per_nft;
+            if (potential_payout > tier_share) tier_share else potential_payout
+        } else {
+            0u64
+        };
+        total_nft_holder_share = total_nft_holder_share + tier_payout;
+
+        let share_per_nft: u64 = if (staked_count > 0u64) tier_payout / staked_count else 0u64;
+        let mut j: u64 = 0;
+        while (j < total_staked) {
+            if (*vector::borrow(&tiers, j) == i) {
+                vector::push_back(&mut shares, share_per_nft);
+            };
+            j = j + 1u64;
+        };
+        i = i + 1u64;
+    };
+
+    // Step 3: Distribute shares to staked NFTs
+    if (total_staked > 0u64) {
+        i = 0u64;
+        while (i < total_staked) {
+            let share: u64 = *vector::borrow(&shares, i);
+            if (share > 0u64) {
+                let owner = *vector::borrow(&owners, i);
+                let share_coin = coin::split(&mut fees, share, ctx);
+                nft_staking::add_to_user_balance(staking_pool, owner, share_coin, ctx);
+            };
+            i = i + 1u64;
+        };
+    };
+
+    // Step 4: Send remaining fees to owner
+    let owner_share: u64 = total_fees_value - total_nft_holder_share;
+    if (owner_share > 0u64) {
+        let owner_coin = coin::split(&mut fees, owner_share, ctx);
         transfer::public_transfer(owner_coin, registry.owner);
-    } else {
-        let mut total_percentage = 0;
-        let mut i = 0;
-        while (i < total_staked) {
-            let staked_nft = vector::borrow(staked_nfts, i);
-            let tier = nft_staking::get_tier(staked_nft, nft_registry);
-            let percentage = if (tier == 1) { 10000 }
-                            else if (tier == 2) { 1000 }
-                            else if (tier == 3) { 100 }
-                            else if (tier == 4) { 10 }
-                            else { 0 };
-            total_percentage = total_percentage + percentage;
-            i = i + 1;
-        };
-
-        i = 0;
-        while (i < total_staked) {
-            let staked_nft = vector::borrow(staked_nfts, i);
-            let tier = nft_staking::get_tier(staked_nft, nft_registry);
-            let owner = nft_staking::get_owner(staked_nft);
-            let percentage = if (tier == 1) { 10000 }
-                            else if (tier == 2) { 1000 }
-                            else if (tier == 3) { 100 }
-                            else if (tier == 4) { 10 }
-                            else { 0 };
-            let share = if (total_percentage > 0) {
-                (nft_holder_share * percentage) / total_percentage
-            } else {
-                0
-            };
-            if (share > 0) {
-                let coin = coin::split(&mut fees, share, ctx);
-                transfer::public_transfer(coin, owner);
-            };
-            i = i + 1;
-        };
-
-        if (_owner_share > 0) {
-            let owner_coin = coin::split(&mut fees, _owner_share, ctx);
-            transfer::public_transfer(owner_coin, registry.owner);
-        };
     };
 
     balance::join(&mut registry.kiosk_sponsor_fees, coin::into_balance(fees));

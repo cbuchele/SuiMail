@@ -19,6 +19,8 @@ module suimail::nft_staking {
     const EMaxTierLimitReached: u64 = 3;
     const EIncorrectPayment: u64 = 4;
     const EItemNotFound: u64 = 5;
+    const EUserAlreadyMintedNFT: u64 = 6;
+    const ENoFeesToWithdraw: u64 = 7;
 
     /// NFT Tiers and Percentages (scaled by 1000 for precision)
     const TIER_1_PERCENTAGE: u64 = 1000; // 1%
@@ -50,7 +52,7 @@ module suimail::nft_staking {
         description: String,
     }
 
-    /// Ticket issued when staking an NFT, redeemable for the original NFT
+    /// Ticket issued when staking an NFT
     public struct StakingTicket has key, store {
         id: UID,
         nft_id: ID,
@@ -60,7 +62,7 @@ module suimail::nft_staking {
     /// Registry to track all staked NFTs and tier counts
     public struct NFTCollectionRegistry has key {
         id: UID,
-        nfts: Table<ID, NFT>, // Stores NFTs during staking
+        nfts: Table<ID, NFT>,
         tier_counts: vector<u64>, // [tier1_count, tier2_count, tier3_count, tier4_count]
         owner: address,
     }
@@ -72,11 +74,13 @@ module suimail::nft_staking {
         owner: address,
     }
 
-    /// Represents the staking pool
+    /// Represents the staking pool with user balances
     public struct StakingPool has key {
         id: UID,
         staked_nfts: vector<StakedNFT>,
         total_fees: Balance<SUI>,
+        user_balances: Table<address, Balance<SUI>>, // Tracks each user's accumulated fees
+        user_total_payouts: Table<address, u64>,     // Tracks total payouts per user
         donated_balance: Balance<SUI>,
         owner: address,
     }
@@ -87,14 +91,21 @@ module suimail::nft_staking {
         name: String,
         description: String,
         total_minted: u64,
-        minted_nfts: Table<ID, bool>, // Tracks all minted NFT IDs
+        minted_nfts: Table<ID, bool>,
+        owner_minted_nfts: Table<address, ID>,
     }
 
-    /// Event emitted when an NFT is minted into the collection
+    /// Event emitted when an NFT is minted
     public struct NFTMintedEvent has copy, drop {
         nft_id: ID,
         tier: u8,
         sender: address,
+    }
+
+    /// Event emitted when fees are withdrawn
+    public struct FeeWithdrawalEvent has copy, drop {
+        user: address,
+        amount: u64,
     }
 
     /// Calculate the NFT holder percentage based on the staking pool
@@ -122,6 +133,21 @@ module suimail::nft_staking {
         &pool.staked_nfts
     }
 
+
+     /// Add fees to a user's balance in the staking pool
+    public entry fun add_to_user_balance(
+    pool: &mut StakingPool,
+    user: address,
+    amount: Coin<SUI>,
+    _ctx: &mut TxContext
+) {
+    if (!table::contains(&pool.user_balances, user)) {
+        table::add(&mut pool.user_balances, user, balance::zero<SUI>());
+    };
+    let user_balance = table::borrow_mut(&mut pool.user_balances, user);
+    balance::join(user_balance, coin::into_balance(amount));
+}
+
     /// Public functions to expose constant values
     public fun get_tier_1_percentage(): u64 { TIER_1_PERCENTAGE }
     public fun get_tier_2_percentage(): u64 { TIER_2_PERCENTAGE }
@@ -136,6 +162,8 @@ module suimail::nft_staking {
             id: object::new(ctx),
             staked_nfts: vector::empty<StakedNFT>(),
             total_fees: balance::zero<SUI>(),
+            user_balances: table::new(ctx),
+            user_total_payouts: table::new(ctx),
             donated_balance: balance::zero<SUI>(),
             owner: deployer,
         };
@@ -155,6 +183,7 @@ module suimail::nft_staking {
             description: string::utf8(b"A collection of NFTs representing sponsorship donations for SuiMail"),
             total_minted: 0,
             minted_nfts: table::new(ctx),
+            owner_minted_nfts: table::new(ctx),
         };
         transfer::share_object(collection);
 
@@ -202,13 +231,13 @@ module suimail::nft_staking {
 
     /// Calculate the tier based on the donation amount
     fun calculate_tier(donation_amount: u64): u8 {
-        if (donation_amount >= 50_000_000_000_000) 1 // 50,000 SUI+
-        else if (donation_amount >= 5_000_000_000_000) 2 // 5,000 - 49,999 SUI
-        else if (donation_amount >= 1_000_000_000_000) 3 // 1,000 - 4,999 SUI
-        else 4 // 10 - 999 SUI
+        if (donation_amount >= 50_000_000_000_000) 1
+        else if (donation_amount >= 5_000_000_000_000) 2
+        else if (donation_amount >= 1_000_000_000_000) 3
+        else 4
     }
 
-    /// Mint a new sponsor NFT and add to collection
+    /// Mint a new sponsor NFT
     public entry fun mint_sponsor_nft(
         collection: &mut SponsorNFTCollection,
         registry: &mut NFTCollectionRegistry,
@@ -217,10 +246,11 @@ module suimail::nft_staking {
         ctx: &mut TxContext
     ) {
         let sender = tx_context::sender(ctx);
-        let donation_amount = coin::value(&payment);
+        assert!(!table::contains(&collection.owner_minted_nfts, sender), EUserAlreadyMintedNFT);
 
-        assert!(donation_amount >= 10_000_000_000, EIncorrectPayment); // 10 SUI min
-        assert!(donation_amount <= 50_000_000_000_000, EIncorrectPayment); // 50,000 SUI max
+        let donation_amount = coin::value(&payment);
+        assert!(donation_amount >= 10_000_000_000, EIncorrectPayment);
+        assert!(donation_amount <= 50_000_000_000_000, EIncorrectPayment);
 
         let tier = calculate_tier(donation_amount);
         let tier_index = (tier - 1) as u64;
@@ -254,19 +284,16 @@ module suimail::nft_staking {
 
         let nft_id = object::id(&nft);
         table::add(&mut collection.minted_nfts, nft_id, true);
+        table::add(&mut collection.owner_minted_nfts, sender, nft_id);
         collection.total_minted = collection.total_minted + 1;
 
-        event::emit(NFTMintedEvent {
-            nft_id,
-            tier,
-            sender,
-        });
+        event::emit(NFTMintedEvent { nft_id, tier, sender });
 
         transfer::public_transfer(nft, sender);
         balance::join(&mut pool.donated_balance, coin::into_balance(payment));
     }
 
-    /// Edit a sponsor NFT to add more SUI and upgrade its tier
+    /// Edit a sponsor NFT to upgrade its tier
     public entry fun edit_sponsor_nft(
         collection: &mut SponsorNFTCollection,
         registry: &mut NFTCollectionRegistry,
@@ -349,6 +376,13 @@ module suimail::nft_staking {
             owner: sender,
         };
 
+        if (!table::contains(&pool.user_balances, sender)) {
+            table::add(&mut pool.user_balances, sender, balance::zero<SUI>());
+        };
+        if (!table::contains(&pool.user_total_payouts, sender)) {
+            table::add(&mut pool.user_total_payouts, sender, 0);
+        };
+
         vector::push_back(&mut pool.staked_nfts, staked_nft);
         table::add(&mut registry.nfts, nft_id, nft);
 
@@ -398,6 +432,32 @@ module suimail::nft_staking {
         object::delete(id);
     }
 
+    /// Withdraw accumulated fees for a staked NFT holder
+    public entry fun withdraw_share(
+        pool: &mut StakingPool,
+        ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        assert!(table::contains(&pool.user_balances, sender), ENotAuthorized);
+
+        let user_balance = table::borrow_mut(&mut pool.user_balances, sender);
+        let amount = balance::value(user_balance);
+        assert!(amount > 0, ENoFeesToWithdraw);
+
+        let payout = balance::split(user_balance, amount);
+        let coin = coin::from_balance(payout, ctx);
+        transfer::public_transfer(coin, sender);
+
+        let total_payouts = table::borrow_mut(&mut pool.user_total_payouts, sender);
+        *total_payouts = *total_payouts + amount;
+
+        event::emit(FeeWithdrawalEvent {
+            user: sender,
+            amount,
+        });
+    }
+
+
     /// Getter functions for public access
     public fun get_tier_counts(registry: &NFTCollectionRegistry): &vector<u64> {
         &registry.tier_counts
@@ -413,6 +473,22 @@ module suimail::nft_staking {
 
     public fun is_nft_in_collection(collection: &SponsorNFTCollection, nft_id: &ID): bool {
         table::contains(&collection.minted_nfts, *nft_id)
+    }
+
+    public fun get_user_balance(pool: &StakingPool, user: address): u64 {
+        if (table::contains(&pool.user_balances, user)) {
+            balance::value(table::borrow(&pool.user_balances, user))
+        } else {
+            0
+        }
+    }
+
+    public fun get_user_total_payouts(pool: &StakingPool, user: address): u64 {
+        if (table::contains(&pool.user_total_payouts, user)) {
+            *table::borrow(&pool.user_total_payouts, user)
+        } else {
+            0
+        }
     }
 
     #[test_only]

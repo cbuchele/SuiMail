@@ -13,7 +13,7 @@ module suimail::messaging {
 
     /// Error codes
     const E_NOT_AUTHORIZED: u64 = 1;
-    const E_MAILBOX_EXISTS: u64 = 2;
+    const E_MAILBOX_EXISTS: u64 = 2; // Already enforces one mailbox per user
     const E_INSUFFICIENT_FUNDS: u64 = 3;
     const E_MAILBOX_NOT_FOUND: u64 = 4;
 
@@ -68,15 +68,17 @@ module suimail::messaging {
         });
     }
 
-    /// Create a mailbox for a user (requires payment of the mailbox creation fee)
+    /// Create a mailbox for a user (limited to one per user, requires payment of the mailbox creation fee)
     public entry fun create_mailbox(
         registry: &mut MailboxRegistry,
         payment: Coin<SUI>,
         ctx: &mut TxContext
     ) {
         let sender = tx_context::sender(ctx);
+        // Check if the sender already has a mailbox
         assert!(!table::contains(&registry.owner_to_mailbox, sender), E_MAILBOX_EXISTS);
         assert!(coin::value(&payment) == registry.mailbox_creation_fee, E_INSUFFICIENT_FUNDS);
+        
         balance::join(&mut registry.fee_balance, coin::into_balance(payment));
         let mailbox = Mailbox {
             id: object::new(ctx),
