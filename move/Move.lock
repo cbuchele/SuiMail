@@ -40,7 +40,13 @@ latest-published-id = "0x851fb09e8030b9a6344591350e9e96de31018503f339acb39c48f3b
 published-version = "1"
 
 [env.Develop]
-chain-id = "b6ba1d54"
-original-published-id = "0x5aed431a965b9aa3baaab6425c5776051e4bd22f56b275c5ae969550f87ef80a"
-latest-published-id = "0x5aed431a965b9aa3baaab6425c5776051e4bd22f56b275c5ae969550f87ef80a"
+chain-id = "b7899290"
+original-published-id = "0x6a1922329c8a1d8d02b0507e74e0b134f48dc13d11943978732ea2466079e784"
+latest-published-id = "0x6a1922329c8a1d8d02b0507e74e0b134f48dc13d11943978732ea2466079e784"
+published-version = "1"
+
+[env.mainnet]
+chain-id = "35834a8a"
+original-published-id = "0xb8c681f9d2e0961726173f4dde1d692a9e67673c53359124fdba893bb51fa62c"
+latest-published-id = "0xb8c681f9d2e0961726173f4dde1d692a9e67673c53359124fdba893bb51fa62c"
 published-version = "1"
