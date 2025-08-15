@@ -2,10 +2,17 @@
 name = "suimail"
 edition = "2024"
 license = "MIT"
-authors = ["Your Name (yourname@example.com)"]
+authors = ["SuiMail Team (team@suimail.sui)"]
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
 
 [addresses]
 suimail = "0x0"
+
+# New decentralized email system modules
+# - email: Core email functionality with Walrus integration
+# - suins_integration: SuiNS domain management for human-readable addresses
+# - walrus_integration: Decentralized storage management
+# - profile: User profile management (simplified)
+# - admin: Administrative functions

@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuiMail - Decentralized Email on Sui Blockchain</title>
+    <meta name="description" content="SuiMail is a completely decentralized email system built on the Sui blockchain using Walrus Protocol for storage. True uncensored communication with human-readable addresses via SuiNS.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <img src="logo.svg" alt="SuiMail Logo" class="logo-img">
+                    <span class="logo-text">SuiMail</span>
+                </div>
+                <nav class="nav">
+                    <a href="#features" class="nav-link">Features</a>
+                    <a href="#how-it-works" class="nav-link">How It Works</a>
+                    <a href="#walrus" class="nav-link">Walrus Protocol</a>
+                    <a href="#suins" class="nav-link">SuiNS</a>
+                </nav>
+                <div class="header-actions">
+                    <button class="btn btn-secondary" id="connect-wallet">Connect Wallet</button>
+                    <button class="btn btn-primary" id="launch-app">Launch App</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    The Future of <span class="highlight">Decentralized</span> Email
+                </h1>
+                <p class="hero-subtitle">
+                    SuiMail combines the power of the Sui blockchain with Walrus Protocol to deliver 
+                    truly decentralized, uncensored, and secure email communication.
+                </p>
+                <div class="hero-features">
+                    <div class="feature-item">
+                        <div class="feature-icon">🔒</div>
+                        <span>End-to-End Encryption</span>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">🌐</div>
+                        <span>Decentralized Storage</span>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">👤</div>
+                        <span>Human-Readable Addresses</span>
+                    </div>
+                </div>
+                <div class="hero-actions">
+                    <button class="btn btn-primary btn-large" id="get-started">Get Started</button>
+                    <button class="btn btn-outline btn-large" id="learn-more">Learn More</button>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="email-interface-preview">
+                    <div class="email-header">
+                        <div class="email-avatar">👤</div>
+                        <div class="email-info">
+                            <div class="email-sender">alice.sui</div>
+                            <div class="email-subject">Welcome to SuiMail!</div>
+                        </div>
+                        <div class="email-time">2 min ago</div>
+                    </div>
+                    <div class="email-preview">
+                        Experience the future of decentralized communication...
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section id="features" class="features">
+            <div class="container">
+                <h2 class="section-title">Why Choose SuiMail?</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🔐</div>
+                        <h3>True Decentralization</h3>
+                        <p>Built entirely on the Sui blockchain with no centralized servers. Your data, your control.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🦭</div>
+                        <h3>Walrus Protocol Storage</h3>
+                        <p>All emails and attachments stored securely in decentralized storage via Walrus Protocol.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📧</div>
+                        <h3>Familiar Email Experience</h3>
+                        <p>Works just like traditional email but with blockchain security and decentralization.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">👤</div>
+                        <h3>SuiNS Integration</h3>
+                        <p>Use human-readable addresses like "alice.sui" instead of complex wallet addresses.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⚡</div>
+                        <h3>Lightning Fast</h3>
+                        <p>Built on Sui's high-performance blockchain for instant email delivery.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🛡️</div>
+                        <h3>Uncensorable</h3>
+                        <p>No central authority can block, censor, or shut down your communications.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- How It Works Section -->
+        <section id="how-it-works" class="how-it-works">
+            <div class="container">
+                <h2 class="section-title">How SuiMail Works</h2>
+                <div class="steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h3>Create Your Mailbox</h3>
+                            <p>Connect your Sui wallet and create a decentralized mailbox on the blockchain.</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h3>Get Your SuiNS Address</h3>
+                            <p>Register a human-readable address like "yourname.sui" through SuiNS.</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h3>Send & Receive Emails</h3>
+                            <p>Compose emails that are encrypted and stored in Walrus decentralized storage.</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <h3>Enjoy True Freedom</h3>
+                            <p>Communicate without fear of censorship, surveillance, or data breaches.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Walrus Protocol Section -->
+        <section id="walrus" class="walrus-section">
+            <div class="container">
+                <div class="walrus-content">
+                    <div class="walrus-text">
+                        <h2>Powered by Walrus Protocol</h2>
+                        <p>
+                            SuiMail leverages the Walrus Protocol for decentralized storage, ensuring your emails 
+                            are distributed across a network of nodes rather than stored on centralized servers.
+                        </p>
+                        <ul class="walrus-features">
+                            <li>🔒 End-to-end encryption for all content</li>
+                            <li>🌐 Distributed across multiple storage nodes</li>
+                            <li>⚡ Fast retrieval with content addressing</li>
+                            <li>🛡️ Tamper-proof and immutable storage</li>
+                        </ul>
+                    </div>
+                    <div class="walrus-visual">
+                        <div class="storage-nodes">
+                            <div class="node node-1">Node 1</div>
+                            <div class="node node-2">Node 2</div>
+                            <div class="node node-3">Node 3</div>
+                            <div class="node node-4">Node 4</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SuiNS Section -->
+        <section id="suins" class="suins-section">
+            <div class="container">
+                <div class="suins-content">
+                    <div class="suins-visual">
+                        <div class="address-examples">
+                            <div class="address-example">
+                                <span class="old-format">0x1234...abcd</span>
+                                <span class="arrow">→</span>
+                                <span class="new-format">alice.sui</span>
+                            </div>
+                            <div class="address-example">
+                                <span class="old-format">0x5678...efgh</span>
+                                <span class="arrow">→</span>
+                                <span class="new-format">bob.sui</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="suins-text">
+                        <h2>Human-Readable Addresses with SuiNS</h2>
+                        <p>
+                            Say goodbye to complex wallet addresses. SuiNS (Sui Name Service) allows you to 
+                            use memorable names like "alice.sui" for your email address.
+                        </p>
+                        <div class="suins-benefits">
+                            <div class="benefit">
+                                <strong>Easy to Remember</strong>
+                                <span>No more copying and pasting long addresses</span>
+                            </div>
+                            <div class="benefit">
+                                <strong>Professional</strong>
+                                <span>Use your brand or personal name</span>
+                            </div>
+                            <div class="benefit">
+                                <strong>Portable</strong>
+                                <span>Keep your address even if you change wallets</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA Section -->
+        <section class="cta-section">
+            <div class="container">
+                <h2>Ready to Experience the Future of Email?</h2>
+                <p>Join thousands of users who have already switched to decentralized communication.</p>
+                <div class="cta-actions">
+                    <button class="btn btn-primary btn-large" id="create-mailbox">Create Your Mailbox</button>
+                    <button class="btn btn-outline btn-large" id="view-demo">View Demo</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <div class="footer-content">
+                    <div class="footer-section">
+                        <h4>SuiMail</h4>
+                        <p>Decentralized email system built on Sui blockchain with Walrus Protocol storage.</p>
+                    </div>
+                    <div class="footer-section">
+                        <h4>Technology</h4>
+                        <ul>
+                            <li><a href="#walrus">Walrus Protocol</a></li>
+                            <li><a href="#suins">SuiNS</a></li>
+                            <li><a href="#features">Features</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-section">
+                        <h4>Resources</h4>
+                        <ul>
+                            <li><a href="#how-it-works">How It Works</a></li>
+                            <li><a href="#features">Documentation</a></li>
+                            <li><a href="#features">Support</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-section">
+                        <h4>Connect</h4>
+                        <ul>
+                            <li><a href="#features">Discord</a></li>
+                            <li><a href="#features">Twitter</a></li>
+                            <li><a href="#features">GitHub</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="footer-bottom">
+                    <p>&copy; 2024 SuiMail. Built with ❤️ on the Sui blockchain.</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Email App Modal -->
+    <div id="email-app-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>SuiMail - Decentralized Email</h2>
+                <button class="close-btn" id="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="email-interface">
+                    <div class="sidebar">
+                        <div class="sidebar-header">
+                            <button class="compose-btn">✏️ Compose</button>
+                        </div>
+                        <nav class="sidebar-nav">
+                            <a href="#" class="nav-item active">📥 Inbox</a>
+                            <a href="#" class="nav-item">📤 Sent</a>
+                            <a href="#" class="nav-item">📁 Drafts</a>
+                            <a href="#" class="nav-item">🗑️ Trash</a>
+                            <a href="#" class="nav-item">📂 Archive</a>
+                        </nav>
+                    </div>
+                    <div class="main-content">
+                        <div class="email-list">
+                            <div class="email-item unread">
+                                <div class="email-sender">alice.sui</div>
+                                <div class="email-subject">Welcome to SuiMail!</div>
+                                <div class="email-preview">Experience the future of decentralized communication...</div>
+                                <div class="email-time">2 min ago</div>
+                            </div>
+                            <div class="email-item">
+                                <div class="email-sender">bob.sui</div>
+                                <div class="email-subject">Blockchain Email Discussion</div>
+                                <div class="email-preview">Let's discuss the benefits of decentralized email...</div>
+                                <div class="email-time">1 hour ago</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
